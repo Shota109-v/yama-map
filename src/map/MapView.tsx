@@ -14,8 +14,7 @@ import { nextSaturday } from '../logic/date'
 import { baseMapStyle, HILLSHADE_LAYER_ID, type BaseMapType } from './baseMap'
 import {
   addMountainLayers,
-  MAJOR_POINT_LAYER,
-  OTHER_POINT_LAYER,
+  MOUNTAIN_POINT_LAYERS,
   setSelectedMountain,
 } from './mountainLayers'
 import { MountainSheet, PEEK_HEIGHT } from './MountainSheet'
@@ -96,7 +95,7 @@ export function MapView({ baseMapType, active }: Props) {
     // 山をタップしたら選ぶ。何もない所をタップしたら選択を外す
     map.on('click', (e) => {
       const { x, y } = e.point
-      const layers = [MAJOR_POINT_LAYER, OTHER_POINT_LAYER].filter((id) => map.getLayer(id))
+      const layers = MOUNTAIN_POINT_LAYERS.filter((id) => map.getLayer(id))
       const features = map.queryRenderedFeatures(
         [
           [x - TAP_TOLERANCE, y - TAP_TOLERANCE],
@@ -104,7 +103,7 @@ export function MapView({ baseMapType, active }: Props) {
         ],
         { layers },
       )
-      // 主要な山を優先する（レイヤーは上にあるものから返る）
+      // 百名山 → 二百・三百名山 → その他の順に優先する（レイヤーは上にあるものから返る）
       const f = features[0]
       if (f && f.geometry.type === 'Point') {
         const m = toMountain(f.properties as MountainProps, f.geometry.coordinates)
@@ -117,7 +116,7 @@ export function MapView({ baseMapType, active }: Props) {
         setSelected(null)
       }
     })
-    for (const layer of [MAJOR_POINT_LAYER, OTHER_POINT_LAYER]) {
+    for (const layer of MOUNTAIN_POINT_LAYERS) {
       map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
       map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
     }

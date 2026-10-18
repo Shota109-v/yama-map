@@ -8,12 +8,40 @@ import { loadMajorMountains, loadOtherMountains } from '../data/mountains'
 
 export const MAJOR_SOURCE = 'mountains-major'
 export const OTHER_SOURCE = 'mountains-other'
-export const MAJOR_POINT_LAYER = 'mountains-major-point'
-export const OTHER_POINT_LAYER = 'mountains-other-point'
 export const SELECTED_LAYER = 'mountain-selected'
 
-/** その他の山を表示し始める縮尺 */
-export const OTHER_MIN_ZOOM = 9
+/**
+ * 拡大するにつれて表示する山を増やす。
+ * 百名山 → 二百・三百名山 → その他の主要な山 → OSM のその他の山 の順に現れる
+ */
+const STAGES = {
+  rank1: { pointZoom: 0, labelZoom: 6 },
+  rank2: { pointZoom: 6, labelZoom: 7.5 },
+  major: { pointZoom: 8, labelZoom: 9.5 },
+  other: { pointZoom: 10, labelZoom: 12 },
+}
+
+/** その他の山（OSM）を表示し始める縮尺 */
+export const OTHER_MIN_ZOOM = STAGES.other.pointZoom
+
+const COLORS = {
+  rank1: '#d64545', // 赤：百名山
+  rank2: '#2f8f5b', // 緑：二百・三百名山
+  major: '#7a8580', // 灰色：その他の主要な山
+  other: '#97a09b', // 灰色（薄め）：OSM のその他の山
+}
+
+const RANK1_FILTER: FilterSpecification = ['==', ['get', 'rank'], 1]
+const RANK2_FILTER: FilterSpecification = ['==', ['get', 'rank'], 2]
+const NO_RANK_FILTER: FilterSpecification = ['!', ['has', 'rank']]
+
+/** タップで山を選べるレイヤー（上に描くものから順） */
+export const MOUNTAIN_POINT_LAYERS = [
+  'mountains-rank1-point',
+  'mountains-rank2-point',
+  'mountains-major-point',
+  'mountains-other-point',
+]
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 
@@ -24,73 +52,47 @@ export async function addMountainLayers(map: MapLibreMap) {
   map.addSource(OTHER_SOURCE, { type: 'geojson', data: EMPTY })
   map.addSource(SELECTED_LAYER, { type: 'geojson', data: EMPTY })
 
-  // その他の山：拡大したときだけ灰色の小さな点で表示する
-  map.addLayer({
-    id: OTHER_POINT_LAYER,
-    type: 'circle',
+  // 下に描くものから追加する
+  addPointLayer(map, {
+    id: 'mountains-other-point',
     source: OTHER_SOURCE,
-    minzoom: OTHER_MIN_ZOOM,
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 14, 6],
-      'circle-color': '#6b7570',
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 1,
-    },
+    minzoom: STAGES.other.pointZoom,
+    color: COLORS.other,
+    radius: [10, 3.5, 14, 6],
+    strokeWidth: 1,
   })
-  map.addLayer({
-    id: 'mountains-other-label',
-    type: 'symbol',
-    source: OTHER_SOURCE,
-    minzoom: 12,
-    layout: {
-      'text-field': ['get', 'name'],
-      'text-font': LABEL_FONT,
-      'text-size': 11,
-      'text-offset': [0, 0.9],
-      'text-anchor': 'top',
-      'text-optional': true,
-    },
-    paint: { 'text-color': '#4a524e', 'text-halo-color': '#ffffff', 'text-halo-width': 1.2 },
+  addPointLayer(map, {
+    id: 'mountains-major-point',
+    source: MAJOR_SOURCE,
+    filter: NO_RANK_FILTER,
+    minzoom: STAGES.major.pointZoom,
+    color: COLORS.major,
+    radius: [8, 4.5, 13, 7.5],
+    strokeWidth: 1.5,
+  })
+  addPointLayer(map, {
+    id: 'mountains-rank2-point',
+    source: MAJOR_SOURCE,
+    filter: RANK2_FILTER,
+    minzoom: STAGES.rank2.pointZoom,
+    color: COLORS.rank2,
+    radius: [6, 5, 13, 9],
+    strokeWidth: 1.5,
+  })
+  addPointLayer(map, {
+    id: 'mountains-rank1-point',
+    source: MAJOR_SOURCE,
+    filter: RANK1_FILTER,
+    minzoom: STAGES.rank1.pointZoom,
+    color: COLORS.rank1,
+    radius: [4, 5, 13, 11],
+    strokeWidth: 2,
   })
 
-  // 主要な山：常に表示する。ステップ4でおすすめ度による色分けに置き換える
-  map.addLayer({
-    id: MAJOR_POINT_LAYER,
-    type: 'circle',
-    source: MAJOR_SOURCE,
-    layout: {
-      // 百名山 → 二百・三百名山 → その他の順に上に重ねる
-      'circle-sort-key': ['-', 3, ['coalesce', ['get', 'rank'], 3]],
-    },
-    paint: {
-      // 名山は大きさと縁取りで見分ける（中の色はステップ4でおすすめ度に使う）
-      'circle-radius': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        4,
-        byRank(4.5, 3.5, 2.5),
-        8,
-        byRank(8, 6.5, 5),
-        13,
-        byRank(11, 9, 7.5),
-      ],
-      'circle-color': '#1f5f4a',
-      'circle-stroke-color': byRank(RANK1_STROKE, RANK2_STROKE, '#ffffff'),
-      'circle-stroke-width': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        4,
-        byRank(2, 1.5, 1),
-        10,
-        byRank(3.5, 3, 2),
-      ],
-    },
-  })
-  // 名山の名前は広域から、その他の主要な山は拡大してから表示する
-  addMajorLabelLayer(map, 'mountains-famous-label', ['has', 'rank'], 6)
-  addMajorLabelLayer(map, 'mountains-major-label', ['!', ['has', 'rank']], 8)
+  addLabelLayer(map, 'mountains-other-label', OTHER_SOURCE, null, STAGES.other.labelZoom, 11)
+  addLabelLayer(map, 'mountains-major-label', MAJOR_SOURCE, NO_RANK_FILTER, STAGES.major.labelZoom, 12)
+  addLabelLayer(map, 'mountains-rank2-label', MAJOR_SOURCE, RANK2_FILTER, STAGES.rank2.labelZoom, 12)
+  addLabelLayer(map, 'mountains-rank1-label', MAJOR_SOURCE, RANK1_FILTER, STAGES.rank1.labelZoom, 13)
 
   // 選んだ山の強調表示
   map.addLayer({
@@ -98,7 +100,7 @@ export async function addMountainLayers(map: MapLibreMap) {
     type: 'circle',
     source: SELECTED_LAYER,
     paint: {
-      'circle-radius': 14,
+      'circle-radius': 15,
       'circle-color': 'rgba(232, 137, 58, 0.25)',
       'circle-stroke-color': '#e8893a',
       'circle-stroke-width': 2.5,
@@ -119,38 +121,57 @@ export async function addMountainLayers(map: MapLibreMap) {
   loadOthersIfNeeded()
 }
 
-const RANK1_STROKE = '#d4a017' // 金
-const RANK2_STROKE = '#a3acb5' // 銀
-
-function byRank<T>(rank1: T, rank2: T, other: T): ExpressionSpecification {
-  return ['match', ['coalesce', ['get', 'rank'], 0], 1, rank1, 2, rank2, other] as ExpressionSpecification
+type PointLayerOptions = {
+  id: string
+  source: string
+  filter?: FilterSpecification
+  minzoom: number
+  color: string
+  /** [縮尺1, 半径1, 縮尺2, 半径2]。その間は滑らかに大きくする */
+  radius: [number, number, number, number]
+  strokeWidth: number
 }
 
-function addMajorLabelLayer(
+function addPointLayer(map: MapLibreMap, o: PointLayerOptions) {
+  const [z1, r1, z2, r2] = o.radius
+  map.addLayer({
+    id: o.id,
+    type: 'circle',
+    source: o.source,
+    minzoom: o.minzoom,
+    ...(o.filter ? { filter: o.filter } : {}),
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], z1, r1, z2, r2] as ExpressionSpecification,
+      'circle-color': o.color,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': o.strokeWidth,
+    },
+  })
+}
+
+function addLabelLayer(
   map: MapLibreMap,
   id: string,
-  filter: FilterSpecification,
+  source: string,
+  filter: FilterSpecification | null,
   minzoom: number,
+  size: number,
 ) {
   map.addLayer({
     id,
     type: 'symbol',
-    source: MAJOR_SOURCE,
+    source,
     minzoom,
-    filter,
+    ...(filter ? { filter } : {}),
     layout: {
       'text-field': ['get', 'name'],
       'text-font': LABEL_FONT,
-      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 12, 13],
+      'text-size': size,
       'text-offset': [0, 1],
       'text-anchor': 'top',
       'text-optional': true,
-      // 名山 → 標高の高い山の順に名前を優先して表示する
-      'symbol-sort-key': [
-        '-',
-        ['*', ['coalesce', ['get', 'rank'], 3], 10000],
-        ['coalesce', ['get', 'ele'], 0],
-      ],
+      // 標高の高い山の名前を優先して表示する
+      'symbol-sort-key': ['-', 0, ['coalesce', ['get', 'ele'], 0]],
     },
     paint: { 'text-color': '#1d2a24', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
   })

@@ -169,13 +169,14 @@ body,
   vertical-align: 2px;
 }
 
+/* 地図の点の色と揃える */
 .badge-rank1 {
-  background: #d4a017;
+  background: #d64545;
   color: #ffffff;
 }
 
 .badge-rank2 {
-  background: #8b959e;
+  background: #2f8f5b;
   color: #ffffff;
 }
 
