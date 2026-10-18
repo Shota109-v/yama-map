@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MountainBadge } from '../components/MountainBadge'
 import { formatEle, loadAllMountains, type Mountain } from '../data/mountains'
 
-const MAX_RESULTS = 50
+// 百名山を一覧で見られるよう100件まで表示する
+const MAX_RESULTS = 100
 
 const PREFECTURES = [
   '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
@@ -14,6 +16,22 @@ const PREFECTURES = [
 ]
 
 const MIN_ELE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500, 3000]
+
+type Group = 'all' | 'major' | 'famous' | 'rank1'
+
+const GROUP_OPTIONS: { value: Group; label: string }[] = [
+  { value: 'all', label: '種類：すべて' },
+  { value: 'major', label: '主要な山' },
+  { value: 'famous', label: '二百・三百名山まで' },
+  { value: 'rank1', label: '百名山' },
+]
+
+function inGroup(m: Mountain, group: Group) {
+  if (group === 'major') return m.major
+  if (group === 'famous') return m.rank !== undefined
+  if (group === 'rank1') return m.rank === 1
+  return true
+}
 
 // 「ヶ」「ヵ」は山名の一部（槍ヶ岳など）なので変換しない
 function toHiragana(s: string) {
@@ -31,7 +49,7 @@ export function SearchPanel({ onSelect, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [pref, setPref] = useState('')
   const [minEle, setMinEle] = useState(0)
-  const [majorOnly, setMajorOnly] = useState(false)
+  const [group, setGroup] = useState<Group>('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -44,23 +62,23 @@ export function SearchPanel({ onSelect, onClose }: Props) {
     const q = query.trim()
     // よみがなはカタカナで入力されても探せるようにする
     const qKana = toHiragana(q)
-    if (!q && !pref && !minEle && !majorOnly) return []
+    if (!q && !pref && !minEle && group === 'all') return []
     const hits = mountains.filter(
       (m) =>
         (!q || m.name.includes(q) || (m.yomi && m.yomi.includes(qKana))) &&
         // 県境の山は「富山県 長野県」のように複数の県が入っている
         (!pref || m.pref.split(/\s+/).includes(pref)) &&
         (!minEle || (m.ele ?? 0) >= minEle) &&
-        (!majorOnly || m.major),
+        inGroup(m, group),
     )
-    // 名前が一致する山 → 主要な山 → 標高の高い山の順
-    const rank = (m: Mountain) =>
-      (q && (m.name === q || m.yomi === qKana) ? 0 : 2) + (m.major ? 0 : 1)
-    hits.sort((a, b) => rank(a) - rank(b) || (b.ele ?? 0) - (a.ele ?? 0))
+    // 名前が一致する山 → 名山・主要な山 → 標高の高い山の順
+    const order = (m: Mountain) =>
+      (q && (m.name === q || m.yomi === qKana) ? 0 : 10) + (m.rank ?? (m.major ? 3 : 4))
+    hits.sort((a, b) => order(a) - order(b) || (b.ele ?? 0) - (a.ele ?? 0))
     return hits
-  }, [mountains, query, pref, minEle, majorOnly])
+  }, [mountains, query, pref, minEle, group])
 
-  const hasCondition = query.trim() || pref || minEle || majorOnly
+  const hasCondition = query.trim() || pref || minEle || group !== 'all'
 
   return (
     <div className="search-panel">
@@ -92,10 +110,13 @@ export function SearchPanel({ onSelect, onClose }: Props) {
             </option>
           ))}
         </select>
-        <label className="check">
-          <input type="checkbox" checked={majorOnly} onChange={(e) => setMajorOnly(e.target.checked)} />
-          主要な山のみ
-        </label>
+        <select value={group} onChange={(e) => setGroup(e.target.value as Group)} aria-label="山の種類">
+          {GROUP_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="search-results">
@@ -117,7 +138,7 @@ export function SearchPanel({ onSelect, onClose }: Props) {
               <button type="button" className="result" onClick={() => onSelect(m)}>
                 <span className="result-name">
                   {m.name}
-                  {m.major && <span className="badge">主要</span>}
+                  <MountainBadge mountain={m} />
                 </span>
                 <span className="result-meta">
                   {m.yomi && `${m.yomi}・`}

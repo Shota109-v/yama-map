@@ -1,11 +1,15 @@
 import type { FeatureCollection, Point } from 'geojson'
 
+/** 1 = 日本百名山、2 = 日本二百・三百名山 */
+export type FamousRank = 1 | 2
+
 export type MountainProps = {
   id: string
   name: string
   yomi?: string
   ele?: number
   pref: string
+  rank?: FamousRank
 }
 
 export type MountainCollection = FeatureCollection<Point, MountainProps>
@@ -13,8 +17,21 @@ export type MountainCollection = FeatureCollection<Point, MountainProps>
 export type Mountain = MountainProps & {
   lon: number
   lat: number
-  /** 国土地理院「日本の主な山岳標高」に載っている山 */
+  /** 地図に常に表示する山（国土地理院「日本の主な山岳標高」の山と、名山） */
   major: boolean
+}
+
+export const RANK_LABELS: Record<FamousRank, string> = {
+  1: '百名山',
+  2: '二百・三百名山',
+}
+
+/** 名山なら「百名山」など、そうでなければ主要な山かどうかの表示 */
+export function mountainBadge(m: Mountain): { label: string; className: string } | null {
+  if (m.rank === 1) return { label: RANK_LABELS[1], className: 'badge badge-rank1' }
+  if (m.rank === 2) return { label: RANK_LABELS[2], className: 'badge badge-rank2' }
+  if (m.major) return { label: '主要', className: 'badge' }
+  return null
 }
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/`
@@ -42,7 +59,12 @@ export const loadMajorMountains = () => load('mountains-major.geojson')
 export const loadOtherMountains = () => load('mountains-other.geojson')
 
 export function toMountain(props: MountainProps, coordinates: number[]): Mountain {
-  return { ...props, lon: coordinates[0], lat: coordinates[1], major: props.id.startsWith('gsi-') }
+  return {
+    ...props,
+    lon: coordinates[0],
+    lat: coordinates[1],
+    major: props.id.startsWith('gsi-') || props.rank !== undefined,
+  }
 }
 
 export async function loadAllMountains(): Promise<Mountain[]> {

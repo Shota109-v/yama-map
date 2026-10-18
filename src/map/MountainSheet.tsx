@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import { MountainBadge } from '../components/MountainBadge'
 import { getMountainForecast, type MountainForecast } from '../data/forecastCache'
 import { formatEle, type Mountain } from '../data/mountains'
 import { formatDateShort, toDateKey } from '../logic/date'
@@ -149,7 +150,7 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
           <div>
             <div className="sheet-title">
               {mountain.name}
-              {mountain.major && <span className="badge">主要</span>}
+              <MountainBadge mountain={mountain} />
             </div>
             <div className="sub">
               {mountain.yomi && `${mountain.yomi}・`}

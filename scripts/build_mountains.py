@@ -32,6 +32,27 @@ OUT_DIR = ROOT / "public" / "data"
 
 GSI_CSV_URL = "https://www.gsi.go.jp/KOKUJYOHO/MOUNTAIN/1003zan20260331.csv"
 PREFECTURE_BOUNDARY_URL = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
+WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql"
+
+# 日本百名山・二百名山・三百名山（Wikidata の項目）。二百・三百名山は追加分だけが登録されている
+FAMOUS_LISTS = {
+    "Q1156761": 1,  # 日本百名山
+    "Q11086204": 2,  # 日本二百名山
+    "Q11507122": 2,  # 日本三百名山
+}
+# Wikidata の山名と地理院の山名が違うもの
+FAMOUS_ALIASES = {
+    "那須岳": "茶臼岳",
+    "大台ヶ原山": "日出ヶ岳",
+    "大峰山": "八経ヶ岳",  # 百名山の大峰山は最高峰の八経ヶ岳（山上ヶ岳ではない）
+}
+# Wikidata の座標が大きくずれているもの（山頂の座標で上書きする）
+FAMOUS_COORD_FIXES = {
+    "白山": (36.155063, 136.771449),  # 御前峰
+}
+# 同じ名前の山を探す距離と、名前が違っても同じ山とみなす距離
+FAMOUS_NAME_METERS = 15000
+FAMOUS_NEAR_METERS = 1000
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "yama-map-data-builder/0.1 (personal use; https://github.com/Shota109-v/yama-map)"
 
@@ -270,6 +291,73 @@ def build_others(major: list[dict]) -> list[dict]:
     return result
 
 
+# ---------- 百名山・二百名山・三百名山 ----------
+
+
+def load_famous() -> list[dict]:
+    """[{name, rank, coords: [(lat, lon), ...]}]。rank 1 = 百名山、2 = 二百・三百名山"""
+    values = " ".join(f"wd:{q}" for q in FAMOUS_LISTS)
+    query = f"""
+    SELECT ?m ?mLabel ?list ?coord WHERE {{
+      VALUES ?list {{ {values} }}
+      ?m wdt:P361 ?list .
+      OPTIONAL {{ ?m wdt:P625 ?coord . }}
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "ja". }}
+    }}
+    """
+    url = f"{WIKIDATA_SPARQL_URL}?format=json&query={urllib.parse.quote(query)}"
+    rows = json.loads(cached("wikidata-famous.json", lambda: fetch(url)))["results"]["bindings"]
+
+    items: dict[str, dict] = {}
+    for r in rows:
+        qid = r["m"]["value"].rsplit("/", 1)[1]
+        rank = FAMOUS_LISTS[r["list"]["value"].rsplit("/", 1)[1]]
+        it = items.setdefault(qid, {"name": r["mLabel"]["value"], "rank": rank, "coords": []})
+        it["rank"] = min(it["rank"], rank)
+        if "coord" in r:
+            lon, lat = map(float, r["coord"]["value"].removeprefix("Point(").removesuffix(")").split())
+            it["coords"].append((lat, lon))
+    for it in items.values():
+        if it["name"] in FAMOUS_COORD_FIXES:
+            it["coords"] = [FAMOUS_COORD_FIXES[it["name"]]]
+    return list(items.values())
+
+
+def base_name(name: str) -> str:
+    """「白山＜御前峰＞」→「白山」"""
+    return name.split("＜")[0].split("(")[0].strip()
+
+
+def assign_famous_ranks(famous: list[dict], major: list[dict], others: list[dict]) -> None:
+    """百名山などに当たる山に rank をつける。主要な山から探し、なければその他の山から探す"""
+    unmatched = []
+    for pool in (major, others):
+        grid = Grid(pool)
+        remaining = []
+        for it in famous:
+            name = FAMOUS_ALIASES.get(it["name"], it["name"])
+            best: tuple[float, dict] | None = None
+            for lat, lon in it["coords"]:
+                for m in grid.near(lat, lon, radius_cells=2):
+                    d = distance_m(lat, lon, m["lat"], m["lon"])
+                    mname = base_name(m["name"])
+                    same_name = name in m["name"] or mname in name
+                    if (same_name and d < FAMOUS_NAME_METERS) or d < FAMOUS_NEAR_METERS:
+                        # 名前が合う山を優先し、その中で近いものを選ぶ
+                        score = d if same_name else d + FAMOUS_NAME_METERS
+                        if best is None or score < best[0]:
+                            best = (score, m)
+            if best:
+                m = best[1]
+                m["rank"] = min(m.get("rank", 9), it["rank"])
+            else:
+                remaining.append(it)
+        famous = remaining
+    unmatched = famous
+    if unmatched:
+        log(f"  対応する山が見つからなかった名山: {', '.join(it['name'] for it in unmatched)}")
+
+
 # ---------- 出力 ----------
 
 
@@ -281,6 +369,8 @@ def to_geojson(mountains: list[dict]) -> dict:
             props["yomi"] = m["yomi"]
         if m["ele"] is not None:
             props["ele"] = m["ele"]
+        if "rank" in m:
+            props["rank"] = m["rank"]
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [round(m["lon"], 5), round(m["lat"], 5)]},
@@ -302,10 +392,23 @@ def write(name: str, mountains: list[dict]) -> None:
 def main() -> None:
     log("国土地理院の主要な山を読み込み中")
     major = load_major()
-    write("mountains-major.geojson", major)
 
     log("OpenStreetMap の山を読み込み中")
-    write("mountains-other.geojson", build_others(major))
+    others = build_others(major)
+
+    log("百名山・二百名山・三百名山を読み込み中")
+    assign_famous_ranks(load_famous(), major, others)
+    for rank, label in ((1, "百名山"), (2, "二百・三百名山")):
+        n_major = sum(1 for m in major if m.get("rank") == rank)
+        n_other = sum(1 for m in others if m.get("rank") == rank)
+        log(f"  {label}: 主要な山 {n_major}件 + その他の山 {n_other}件")
+
+    # 名山に当たるその他の山は、広域でも表示されるよう主要な山のファイルに移す
+    major += [m for m in others if "rank" in m]
+    others = [m for m in others if "rank" not in m]
+
+    write("mountains-major.geojson", major)
+    write("mountains-other.geojson", others)
 
 
 if __name__ == "__main__":
