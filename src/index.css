@@ -1,0 +1,32 @@
+:root {
+  --text: #1d2a24;
+  --text-sub: #5b6b63;
+  --bg: #ffffff;
+  --accent: #1f5f4a;
+
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: light dark;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6ece8;
+    --text-sub: #a3b2aa;
+    --bg: #121815;
+    --accent: #6fc3a2;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
