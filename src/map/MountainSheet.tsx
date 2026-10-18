@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import { MountainBadge } from '../components/MountainBadge'
 import { getMountainOutlook, type MountainOutlook } from '../data/forecastCache'
-import { formatEle, type Mountain } from '../data/mountains'
+import { formatEle, searchName, type Mountain } from '../data/mountains'
 import { formatDateShort, toDateKey } from '../logic/date'
 import { estimateKoyo, isKoyoSeason, KOYO_LABELS, type KoyoStage } from '../logic/koyo'
 import type { DayOutlook } from '../logic/outlook'
 import { WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { CLIMB_HOURS, describeWeather, type DaySummary } from '../logic/weather'
+import { LatestInfoSection } from './LatestInfo'
 
 type Snap = 'peek' | 'full'
 
@@ -255,12 +256,14 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
           )}
         </section>
 
+        <LatestInfoSection mountain={mountain} targetDate={targetDate} />
+
         <section>
           <h3>リンク</h3>
           <ul className="link-list">
             <li>
               <a
-                href={`https://www.google.com/search?q=${encodeURIComponent(`${mountain.name} ${mountain.pref.split(/\s+/)[0]} 登山道 状況`)}`}
+                href={`https://www.google.com/search?q=${encodeURIComponent(`${searchName(mountain.name)} ${mountain.pref.split(/\s+/)[0]} 登山道 状況`)}`}
                 target="_blank"
                 rel="noopener"
               >

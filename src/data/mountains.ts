@@ -74,6 +74,11 @@ export async function loadAllMountains(): Promise<Mountain[]> {
   )
 }
 
+/** 「白山＜御前峰＞」「水晶岳（黒岳）」→「白山」「水晶岳」。検索では短い山名の方が多く見つかる */
+export function searchName(name: string): string {
+  return name.split(/[＜（(]/)[0].trim()
+}
+
 export function formatEle(ele?: number) {
   return ele === undefined ? '標高不明' : `${ele.toLocaleString()}m`
 }
