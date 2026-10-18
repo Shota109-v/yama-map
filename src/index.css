@@ -128,6 +128,13 @@ body,
   font-size: 14px;
 }
 
+.api-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .credits {
   margin: 0;
   padding-left: 1.2em;
@@ -666,6 +673,52 @@ body,
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--surface);
+}
+
+/* 最新情報を調べる（AI） */
+.research {
+  margin-bottom: 8px;
+}
+
+.research-button {
+  width: 100%;
+  padding: 11px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.research-button:disabled {
+  opacity: 0.6;
+}
+
+.research-report {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.research-report p {
+  margin: 6px 0 0;
+}
+
+.research-sources {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+}
+
+.research-sources a {
+  color: var(--accent);
+  word-break: break-all;
 }
 
 .link-list {
