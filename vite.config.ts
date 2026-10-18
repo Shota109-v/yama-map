@@ -19,6 +19,17 @@ export default defineConfig({
         // 一度見た地理院タイルは端末に残し、電波が弱い場所でも表示できるようにする
         runtimeCaching: [
           {
+            // 天気予報。電波があれば最新を取り、なければ前に見た予報を出す
+            urlPattern: /^https:\/\/api\.open-meteo\.com\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'forecast',
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 3 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // 山のデータ。手元の版をすぐ使い、裏で新しい版を取り直す
             urlPattern: /\/data\/.*\.geojson$/,
             handler: 'StaleWhileRevalidate',

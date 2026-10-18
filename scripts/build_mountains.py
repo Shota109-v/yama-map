@@ -105,7 +105,8 @@ def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def kata_to_hira(s: str) -> str:
-    return "".join(chr(ord(c) - 0x60) if "ァ" <= c <= "ヶ" else c for c in s)
+    # 「ヵ」「ヶ」はひらがなに対応する一般的な文字がないので変換しない
+    return "".join(chr(ord(c) - 0x60) if "ァ" <= c <= "ヴ" else c for c in s)
 
 
 def parse_ele(value: str | None) -> int | None:

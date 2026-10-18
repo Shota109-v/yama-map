@@ -219,30 +219,183 @@ body,
   stroke-linecap: round;
 }
 
-/* 選んだ山の情報（ステップ3でパネルに置き換える） */
-.mountain-card {
+/* 山の詳細（下から引き出すパネル） */
+.sheet {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100% - 56px - env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: var(--bg);
+  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.22);
+  /* MapLibre の操作ボタン（z-index: 2）より上、検索パネルより下 */
+  z-index: 5;
+  will-change: transform;
+}
+
+.sheet-animated {
+  transition: transform 0.25s ease;
+}
+
+.sheet-header {
+  flex: none;
+  padding: 6px 14px 10px 16px;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 5px;
+  margin: 2px auto 8px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.sheet-title-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 14px 12px 16px;
-  border-radius: 14px;
-  background: var(--bg);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-  z-index: 3;
 }
 
-.mountain-card-name {
-  font-size: 18px;
+.sheet-title {
+  font-size: 19px;
   font-weight: 700;
 }
 
-.mountain-card .sub {
+.sheet-title-row .sub {
   margin-top: 2px;
+}
+
+.sheet-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.day-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.day-line-date {
+  font-weight: 600;
+}
+
+.warn {
+  color: #c2410c;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .warn {
+    color: #fb923c;
+  }
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px calc(24px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+}
+
+.sheet[data-snap='peek'] .sheet-body {
+  overflow: hidden;
+}
+
+.sheet-body section {
+  margin-top: 16px;
+}
+
+.sheet-body h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text-sub);
+}
+
+.forecast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-table th {
+  padding: 4px;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.forecast-table td {
+  padding: 8px 4px;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.forecast-table tr.highlight td {
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.temp-max {
+  color: #c2410c;
+}
+
+.temp-min {
+  color: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .temp-max {
+    color: #fb923c;
+  }
+
+  .temp-min {
+    color: #60a5fa;
+  }
+}
+
+.note {
+  margin: 8px 0 0;
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.caution {
+  margin-top: 20px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.link-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.link-list a {
+  display: block;
+  padding: 11px 0;
+  color: var(--accent);
+  text-decoration: none;
 }
 
 /* 検索パネル（地図の上に全面で重ねる） */

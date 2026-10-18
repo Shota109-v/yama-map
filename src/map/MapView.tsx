@@ -8,8 +8,9 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
-import { formatEle, toMountain, type Mountain, type MountainProps } from '../data/mountains'
+import { toMountain, type Mountain, type MountainProps } from '../data/mountains'
 import { loadJson, saveJson } from '../lib/storage'
+import { nextSaturday } from '../logic/date'
 import { baseMapStyle, HILLSHADE_LAYER_ID, type BaseMapType } from './baseMap'
 import {
   addMountainLayers,
@@ -17,6 +18,7 @@ import {
   OTHER_POINT_LAYER,
   setSelectedMountain,
 } from './mountainLayers'
+import { MountainSheet, PEEK_HEIGHT } from './MountainSheet'
 import { SearchPanel } from './SearchPanel'
 
 // MapLibre は実行時に自分の場所からワーカーを探すため、ビルド後に見つからない。
@@ -43,6 +45,8 @@ export function MapView({ baseMapType, active }: Props) {
   const mapRef = useRef<MapLibreMap | null>(null)
   const [selected, setSelected] = useState<Mountain | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  // ステップ4で日付の切り替えをつける。それまでは次の土曜日
+  const [targetDate] = useState(() => nextSaturday())
 
   useEffect(() => {
     const view = loadJson(VIEW_KEY, DEFAULT_VIEW)
@@ -103,7 +107,12 @@ export function MapView({ baseMapType, active }: Props) {
       // 主要な山を優先する（レイヤーは上にあるものから返る）
       const f = features[0]
       if (f && f.geometry.type === 'Point') {
-        setSelected(toMountain(f.properties as MountainProps, f.geometry.coordinates))
+        const m = toMountain(f.properties as MountainProps, f.geometry.coordinates)
+        setSelected(m)
+        // パネルに隠れる位置の山は、見える所まで地図を動かす
+        const p = map.project([m.lon, m.lat])
+        const visibleBottom = map.getContainer().clientHeight - PEEK_HEIGHT - 24
+        if (p.y > visibleBottom) map.panBy([0, p.y - visibleBottom + 40])
       } else {
         setSelected(null)
       }
@@ -145,7 +154,12 @@ export function MapView({ baseMapType, active }: Props) {
   const selectFromSearch = (m: Mountain) => {
     setSearchOpen(false)
     setSelected(m)
-    mapRef.current?.flyTo({ center: [m.lon, m.lat], zoom: Math.max(mapRef.current.getZoom(), 12) })
+    mapRef.current?.flyTo({
+      center: [m.lon, m.lat],
+      zoom: Math.max(mapRef.current.getZoom(), 12),
+      // パネルの分だけ山を上にずらして表示する
+      offset: [0, -PEEK_HEIGHT / 2],
+    })
   }
 
   return (
@@ -160,28 +174,13 @@ export function MapView({ baseMapType, active }: Props) {
         山を検索
       </button>
 
-      {/* ステップ3で下から引き出すパネルに置き換える */}
       {selected && (
-        <div className="mountain-card">
-          <div>
-            <div className="mountain-card-name">
-              {selected.name}
-              {selected.major && <span className="badge">主要</span>}
-            </div>
-            <div className="sub">
-              {selected.yomi && `${selected.yomi}・`}
-              {selected.pref}・{formatEle(selected.ele)}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="閉じる"
-            onClick={() => setSelected(null)}
-          >
-            ×
-          </button>
-        </div>
+        <MountainSheet
+          key={selected.id}
+          mountain={selected}
+          targetDate={targetDate}
+          onClose={() => setSelected(null)}
+        />
       )}
 
       {searchOpen && <SearchPanel onSelect={selectFromSearch} onClose={() => setSearchOpen(false)} />}

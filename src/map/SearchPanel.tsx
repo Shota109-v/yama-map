@@ -15,8 +15,9 @@ const PREFECTURES = [
 
 const MIN_ELE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500, 3000]
 
+// 「ヶ」「ヵ」は山名の一部（槍ヶ岳など）なので変換しない
 function toHiragana(s: string) {
-  return s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
+  return s.replace(/[ァ-ヴ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
 }
 
 type Props = {
@@ -40,11 +41,13 @@ export function SearchPanel({ onSelect, onClose }: Props) {
 
   const results = useMemo(() => {
     if (!mountains) return []
-    const q = toHiragana(query.trim())
+    const q = query.trim()
+    // よみがなはカタカナで入力されても探せるようにする
+    const qKana = toHiragana(q)
     if (!q && !pref && !minEle && !majorOnly) return []
     const hits = mountains.filter(
       (m) =>
-        (!q || m.name.includes(q) || (m.yomi && toHiragana(m.yomi).includes(q))) &&
+        (!q || m.name.includes(q) || (m.yomi && m.yomi.includes(qKana))) &&
         // 県境の山は「富山県 長野県」のように複数の県が入っている
         (!pref || m.pref.split(/\s+/).includes(pref)) &&
         (!minEle || (m.ele ?? 0) >= minEle) &&
@@ -52,7 +55,7 @@ export function SearchPanel({ onSelect, onClose }: Props) {
     )
     // 名前が一致する山 → 主要な山 → 標高の高い山の順
     const rank = (m: Mountain) =>
-      (q && (m.name === q || m.yomi === q) ? 0 : 2) + (m.major ? 0 : 1)
+      (q && (m.name === q || m.yomi === qKana) ? 0 : 2) + (m.major ? 0 : 1)
     hits.sort((a, b) => rank(a) - rank(b) || (b.ele ?? 0) - (a.ele ?? 0))
     return hits
   }, [mountains, query, pref, minEle, majorOnly])
