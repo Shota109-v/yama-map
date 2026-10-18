@@ -6,10 +6,12 @@ import { CLIMB_HOURS, describeWeather, type DaySummary } from '../logic/weather'
 
 type Snap = 'peek' | 'full'
 
-/** 「要点」のときに見えている高さ（px） */
-export const PEEK_HEIGHT = 156
+/** 「要点」のときに見えている高さの目安（px）。地図を動かす量の計算に使う。実際の高さは見出しを測って決める */
+export const PEEK_HEIGHT = 160
 /** これ以上動かしたらドラッグとみなす（px） */
 const DRAG_THRESHOLD = 6
+/** 指を離したときの勢いを、どれだけ先まで反映するか（ms） */
+const FLICK_PROJECTION_MS = 180
 
 type Props = {
   mountain: Mountain
@@ -20,10 +22,19 @@ type Props = {
 
 export function MountainSheet({ mountain, targetDate, onClose }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const [snap, setSnap] = useState<Snap>('peek')
   const [sheetHeight, setSheetHeight] = useState(0)
+  const [peekHeight, setPeekHeight] = useState(PEEK_HEIGHT)
   const [dragOffset, setDragOffset] = useState<number | null>(null)
-  const dragStart = useRef<{ y: number; moved: boolean } | null>(null)
+  const drag = useRef<{
+    startY: number
+    moved: boolean
+    /** 直近の指の位置（勢いの計算用） */
+    lastY: number
+    lastT: number
+    velocity: number
+  } | null>(null)
 
   const [forecast, setForecast] = useState<MountainForecast | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,46 +52,77 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
     }
   }, [mountain])
 
+  // パネル全体と見出しの高さを測る。要点表示は見出しがちょうど見える高さにする
+  // （iPhone では文字の折り返しで見出しの高さが変わるため、固定値にしない）
   useLayoutEffect(() => {
-    const el = sheetRef.current
-    if (!el) return
-    const observer = new ResizeObserver(() => setSheetHeight(el.offsetHeight))
-    observer.observe(el)
+    const sheet = sheetRef.current
+    const header = headerRef.current
+    if (!sheet || !header) return
+    const observer = new ResizeObserver(() => {
+      setSheetHeight(sheet.offsetHeight)
+      setPeekHeight(header.offsetHeight)
+    })
+    observer.observe(sheet)
+    observer.observe(header)
     return () => observer.disconnect()
   }, [])
 
-  const baseOffset = snap === 'full' ? 0 : Math.max(sheetHeight - PEEK_HEIGHT, 0)
+  const peekOffset = Math.max(sheetHeight - peekHeight, 0)
+  const baseOffset = snap === 'full' ? 0 : peekOffset
   const offset = Math.max(0, baseOffset + (dragOffset ?? 0))
 
   const onPointerDown = (e: PointerEvent) => {
     if ((e.target as HTMLElement).closest('button, a')) return
-    dragStart.current = { y: e.clientY, moved: false }
+    const now = performance.now()
+    drag.current = { startY: e.clientY, moved: false, lastY: e.clientY, lastT: now, velocity: 0 }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   const onPointerMove = (e: PointerEvent) => {
-    const start = dragStart.current
-    if (!start) return
-    const dy = e.clientY - start.y
-    if (!start.moved && Math.abs(dy) < DRAG_THRESHOLD) return
-    start.moved = true
+    const d = drag.current
+    if (!d) return
+    const dy = e.clientY - d.startY
+    if (!d.moved && Math.abs(dy) < DRAG_THRESHOLD) return
+    d.moved = true
+    const now = performance.now()
+    if (now > d.lastT) d.velocity = (e.clientY - d.lastY) / (now - d.lastT)
+    d.lastY = e.clientY
+    d.lastT = now
     setDragOffset(dy)
   }
 
-  const onPointerUp = () => {
-    const start = dragStart.current
-    dragStart.current = null
-    const dy = dragOffset ?? 0
+  /** 指を離した位置と勢いから、いちばん近い状態（全部・要点・閉じる）に吸着させる */
+  const finishDrag = (canTap: boolean) => {
+    const d = drag.current
+    drag.current = null
     setDragOffset(null)
-    if (!start?.moved) {
+    if (!d) return
+    if (!d.moved) {
       // タップで要点 ⇔ 全部を切り替える
-      setSnap((s) => (s === 'peek' ? 'full' : 'peek'))
-    } else if (dy < -60) {
-      setSnap('full')
-    } else if (dy > 60) {
-      if (snap === 'full') setSnap('peek')
-      else onClose()
+      if (canTap) setSnap((s) => (s === 'peek' ? 'full' : 'peek'))
+      return
     }
+    // しばらく止まってから離した場合は勢いを無視する。勢いが強すぎても1段だけ動くよう上限をつける
+    const rawVelocity = performance.now() - d.lastT > 100 ? 0 : d.velocity
+    const velocity = Math.max(-2, Math.min(2, rawVelocity))
+    const projected = baseOffset + (d.lastY - d.startY) + velocity * FLICK_PROJECTION_MS
+    // 全部表示からは要点まで、要点からは全部表示か閉じるまで（一気に閉じないようにする）
+    const targets: [Snap | 'closed', number][] =
+      snap === 'full'
+        ? [
+            ['full', 0],
+            ['peek', peekOffset],
+          ]
+        : [
+            ['full', 0],
+            ['peek', peekOffset],
+            ['closed', sheetHeight],
+          ]
+    const [nearest] = targets.reduce((a, b) =>
+      Math.abs(b[1] - projected) < Math.abs(a[1] - projected) ? b : a,
+    )
+    if (nearest === 'closed') onClose()
+    else setSnap(nearest)
   }
 
   const target = forecast?.days.find((d) => d.date === targetDate)
@@ -94,11 +136,13 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
       data-snap={snap}
     >
       <div
+        ref={headerRef}
         className="sheet-header"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerUp={() => finishDrag(true)}
+        // iOS が操作を打ち切った場合はタップとみなさない
+        onPointerCancel={() => finishDrag(false)}
       >
         <div className="sheet-handle" />
         <div className="sheet-title-row">
