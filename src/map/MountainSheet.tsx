@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import { MountainBadge } from '../components/MountainBadge'
-import { getMountainForecast, type MountainForecast } from '../data/forecastCache'
+import { getMountainOutlook, type MountainOutlook } from '../data/forecastCache'
 import { formatEle, type Mountain } from '../data/mountains'
 import { formatDateShort, toDateKey } from '../logic/date'
+import { estimateKoyo, isKoyoSeason, KOYO_LABELS, type KoyoStage } from '../logic/koyo'
+import type { DayOutlook } from '../logic/outlook'
+import { WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { CLIMB_HOURS, describeWeather, type DaySummary } from '../logic/weather'
 
 type Snap = 'peek' | 'full'
@@ -16,7 +19,7 @@ const FLICK_PROJECTION_MS = 180
 
 type Props = {
   mountain: Mountain
-  /** 要点に表示する日（ステップ4で地図の日付切り替えとつなぐ） */
+  /** 要点に表示する日（地図で選んでいる日） */
   targetDate: string
   onClose: () => void
 }
@@ -37,14 +40,14 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
     velocity: number
   } | null>(null)
 
-  const [forecast, setForecast] = useState<MountainForecast | null>(null)
+  const [forecast, setForecast] = useState<MountainOutlook | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [todayKey] = useState(() => toDateKey(new Date()))
 
   // 山ごとに作り直される（呼び出し側で key を山の id にしている）ので、取得は最初の1回だけ
   useEffect(() => {
     let cancelled = false
-    getMountainForecast(mountain).then(
+    getMountainOutlook(mountain).then(
       (f) => !cancelled && setForecast(f),
       (e: Error) => !cancelled && setError(e.message),
     )
@@ -166,12 +169,49 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
           {error && <span className="sub">{error}</span>}
           {!error && !forecast && <span className="sub">天気を読み込み中…</span>}
           {forecast && !target && <span className="sub">{formatDateShort(targetDate)}の予報はまだありません</span>}
-          {target && <DayLine label={formatDateShort(targetDate)} day={target} />}
-          {today && <SnowLine snowDepthCm={today.snowDepthCm} />}
+          {target && <DayLine label={formatDateShort(targetDate)} day={target.weather} />}
+          {target && <VerdictLine day={target} />}
         </div>
       </div>
 
       <div className="sheet-body">
+        {target && (
+          <section>
+            <h3>おすすめ度（{formatDateShort(targetDate)}）</h3>
+            <p className={`verdict verdict-${verdictOf(target)}`}>{verdictLabel(target)}</p>
+            <ul className="reason-list">
+              {target.judgement.reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+              {target.koyo.stage !== 'off' && <li>紅葉：{KOYO_LABELS[target.koyo.stage]}（山頂付近）</li>}
+            </ul>
+          </section>
+        )}
+
+        {forecast && isKoyoSeason(targetDate) && forecast.koyoLevels.length > 0 && (
+          <section>
+            <h3>紅葉（推定・{formatDateShort(targetDate)}）</h3>
+            <ul className="koyo-levels">
+              {forecast.koyoLevels.map((level, i) => {
+                const stage = estimateKoyo(level.mins, targetDate).stage
+                return (
+                  <li key={i}>
+                    <span>
+                      {i === 0 ? '山頂付近' : '中腹'}
+                      {level.elevation !== null && `（${level.elevation.toLocaleString()}m）`}
+                    </span>
+                    <KoyoTag stage={stage} />
+                  </li>
+                )
+              })}
+            </ul>
+            <p className="note">
+              最低気温の移り変わりから推定した目安です（8℃を下回ると色づき始め、冷え込むほど進む）。
+              山頂付近が見頃を過ぎていても、中腹が見頃のことがあります。
+            </p>
+          </section>
+        )}
+
         <section>
           <h3>天気（7日間）</h3>
           {forecast ? (
@@ -188,7 +228,7 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
                 </thead>
                 <tbody>
                   {forecast.days.map((d) => (
-                    <ForecastRow key={d.date} day={d} highlight={d.date === targetDate} />
+                    <ForecastRow key={d.date} day={d.weather} highlight={d.date === targetDate} />
                   ))}
                 </tbody>
               </table>
@@ -207,7 +247,7 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
           <h3>積雪</h3>
           {today ? (
             <>
-              <SnowLine snowDepthCm={today.snowDepthCm} />
+              <SnowLine snowDepthCm={today.weather.snowDepthCm} />
               <p className="note">気象モデルによる推定値です。実際の積雪は山小屋や自治体の情報で確認してください。</p>
             </>
           ) : (
@@ -268,6 +308,42 @@ function DayLine({ label, day }: { label: string; day: DaySummary }) {
       {day.precipProbMax !== null && <span>降水 {day.precipProbMax}%</span>}
       {day.thunder && <span className="warn">雷</span>}
     </div>
+  )
+}
+
+type Verdict = 'recommended' | 'ok' | 'bad'
+
+function verdictOf(day: DayOutlook): Verdict {
+  if (day.judgement.cls === 'bad') return 'bad'
+  return day.highlighted ? 'recommended' : 'ok'
+}
+
+function verdictLabel(day: DayOutlook): string {
+  const v = verdictOf(day)
+  if (v === 'recommended') return 'おすすめ'
+  if (v === 'bad') return 'おすすめしない（天気が悪い）'
+  return WEATHER_CLASS_LABELS[day.judgement.cls]
+}
+
+/** 要点に出す判定の1行（おすすめ・紅葉・積雪） */
+function VerdictLine({ day }: { day: DayOutlook }) {
+  return (
+    <div className="day-line">
+      <span className={`verdict verdict-${verdictOf(day)}`}>{verdictLabel(day)}</span>
+      {day.koyo.stage !== 'off' && <KoyoTag stage={day.koyo.stage} prefix="紅葉 " />}
+      {day.weather.snowDepthCm !== null && day.weather.snowDepthCm >= 1 && (
+        <span className="warn">積雪 約{day.weather.snowDepthCm}cm</span>
+      )}
+    </div>
+  )
+}
+
+function KoyoTag({ stage, prefix = '' }: { stage: KoyoStage; prefix?: string }) {
+  return (
+    <span className={`koyo-tag koyo-${stage}`}>
+      {prefix}
+      {KOYO_LABELS[stage]}
+    </span>
   )
 }
 

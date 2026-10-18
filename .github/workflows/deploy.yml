@@ -1,9 +1,12 @@
-# main ブランチに push したら GitHub Pages に公開する
+# main ブランチに push したとき、または毎朝、主要な山のおすすめ度を計算して GitHub Pages に公開する
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
+  schedule:
+    # 毎日 4:00（日本時間）。UTC で指定する
+    - cron: '0 19 * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,6 +28,19 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # 主要な山のおすすめ度を計算する（約15分、Open-Meteo の1日の無料枠の半分ほどを使う）。
+      # 毎朝の定期実行と手動実行のときだけ計算し、push のときは公開中のものを使い回す
+      - name: Build recommendations
+        if: github.event_name != 'push'
+        run: npx tsx scripts/build-recommendations.ts
+        continue-on-error: true
+        timeout-minutes: 30
+      - name: Reuse published recommendations
+        if: github.event_name == 'push'
+        run: curl -fsSL -o public/data/recommendations.json "https://shota109-v.github.io/yama-map/data/recommendations.json" || echo "公開中のおすすめデータがありません"
+      # 失敗したときに壊れたファイルを公開しないようにする
+      - name: Drop empty recommendations
+        run: '[ -s public/data/recommendations.json ] || rm -f public/data/recommendations.json'
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'

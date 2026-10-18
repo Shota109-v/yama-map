@@ -204,11 +204,282 @@ body,
   cursor: pointer;
 }
 
+/* 地図の上部（検索・凡例・日付・見どころ） */
+.map-toolbar {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.map-toolbar > * {
+  pointer-events: auto;
+}
+
+.map-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
+.map-toolbar-row > * {
+  pointer-events: auto;
+}
+
+.map-toolbar .chips {
+  padding: 0 10px;
+}
+
+.map-toolbar .chip {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.map-legend-button {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+/* 横に並ぶ選択肢（日付・見どころ）。はみ出す分は横にスクロールする */
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip-sub {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.chip-sat .chip-sub {
+  color: #2563eb;
+}
+
+.chip-sun .chip-sub {
+  color: #dc2626;
+}
+
+.chip[aria-selected='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.chip[aria-selected='true'] .chip-sub {
+  color: inherit;
+}
+
+/* 凡例 */
+.legend {
+  margin: 0 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  font-size: 14px;
+}
+
+.legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.legend ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.legend-dot {
+  display: inline-block;
+  flex: none;
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.legend-ring {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 3px solid;
+  border-radius: 50%;
+}
+
+/* おすすめの判定 */
+.verdict {
+  display: inline-block;
+  margin: 0;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.verdict-recommended {
+  background: #f08c00;
+  color: #ffffff;
+}
+
+.verdict-ok {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.verdict-bad {
+  background: var(--surface);
+  color: var(--text-sub);
+}
+
+.reason-list {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* 紅葉の状態 */
+.koyo-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.koyo-before {
+  background: #e5efe0;
+  color: #3f6b35;
+}
+
+.koyo-starting {
+  background: #fdecc8;
+  color: #8a5a00;
+}
+
+.koyo-peak {
+  background: #c2410c;
+  color: #ffffff;
+}
+
+.koyo-past {
+  background: #ead8cc;
+  color: #7a4b2e;
+}
+
+.koyo-off {
+  background: var(--surface);
+  color: var(--text-sub);
+}
+
+.koyo-levels {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.koyo-levels li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+/* おすすめ一覧 */
+.recommend-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.recommend-controls .search-filters {
+  padding: 0;
+  border: 0;
+}
+
+.recommend-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recommend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recommend-row.is-bad {
+  opacity: 0.55;
+}
+
+.recommend-main {
+  min-width: 0;
+}
+
+.recommend-side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 13px;
+}
+
 /* 地図上の検索ボタン */
 .map-search-button {
-  position: absolute;
-  top: calc(10px + env(safe-area-inset-top));
-  left: 10px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -508,9 +779,4 @@ body,
   margin-top: 2px;
   color: var(--text-sub);
   font-size: 13px;
-}
-
-/* 地図の操作ボタンをステータスバーに重ならないようにする */
-.maplibregl-ctrl-top-right {
-  top: env(safe-area-inset-top);
 }

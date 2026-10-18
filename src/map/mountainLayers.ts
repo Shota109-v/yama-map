@@ -5,6 +5,7 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl'
 import { loadMajorMountains, loadOtherMountains } from '../data/mountains'
+import type { MountainDisplayState } from '../data/recommendations'
 
 export const MAJOR_SOURCE = 'mountains-major'
 export const OTHER_SOURCE = 'mountains-other'
@@ -48,7 +49,8 @@ const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 const LABEL_FONT = ['Open Sans Semibold']
 
 export async function addMountainLayers(map: MapLibreMap) {
-  map.addSource(MAJOR_SOURCE, { type: 'geojson', data: EMPTY })
+  // おすすめ度を山ごとの状態（feature-state）で渡すため、id を feature の id にする
+  map.addSource(MAJOR_SOURCE, { type: 'geojson', data: EMPTY, promoteId: 'id' })
   map.addSource(OTHER_SOURCE, { type: 'geojson', data: EMPTY })
   map.addSource(SELECTED_LAYER, { type: 'geojson', data: EMPTY })
 
@@ -94,15 +96,15 @@ export async function addMountainLayers(map: MapLibreMap) {
   addLabelLayer(map, 'mountains-rank2-label', MAJOR_SOURCE, RANK2_FILTER, STAGES.rank2.labelZoom, 12)
   addLabelLayer(map, 'mountains-rank1-label', MAJOR_SOURCE, RANK1_FILTER, STAGES.rank1.labelZoom, 13)
 
-  // 選んだ山の強調表示
+  // 選んだ山の強調表示（おすすめの輪のオレンジと区別するため青にする）
   map.addLayer({
     id: SELECTED_LAYER,
     type: 'circle',
     source: SELECTED_LAYER,
     paint: {
-      'circle-radius': 15,
-      'circle-color': 'rgba(232, 137, 58, 0.25)',
-      'circle-stroke-color': '#e8893a',
+      'circle-radius': 17,
+      'circle-color': 'rgba(37, 99, 235, 0.15)',
+      'circle-stroke-color': '#2563eb',
       'circle-stroke-width': 2.5,
     },
   })
@@ -132,21 +134,60 @@ type PointLayerOptions = {
   strokeWidth: number
 }
 
+/** 天気が悪い日・絞り込みに合わない山は薄く表示する */
+const DIM_OPACITY = 0.3
+const dimmed: ExpressionSpecification = ['boolean', ['feature-state', 'dim'], false]
+const highlighted: ExpressionSpecification = ['boolean', ['feature-state', 'hl'], false]
+
+/** おすすめの山に付ける輪の色 */
+export const HIGHLIGHT_COLOR = '#f08c00'
+
 function addPointLayer(map: MapLibreMap, o: PointLayerOptions) {
   const [z1, r1, z2, r2] = o.radius
+  const radius = (extra: number) =>
+    ['interpolate', ['linear'], ['zoom'], z1, r1 + extra, z2, r2 + extra] as ExpressionSpecification
+  const filter = o.filter ? { filter: o.filter } : {}
+
+  // おすすめの山を囲む輪（主要な山だけ。点の下に描く）
+  if (o.source === MAJOR_SOURCE) {
+    map.addLayer({
+      id: `${o.id}-ring`,
+      type: 'circle',
+      source: o.source,
+      minzoom: o.minzoom,
+      ...filter,
+      paint: {
+        'circle-radius': radius(4),
+        'circle-color': 'rgba(0, 0, 0, 0)',
+        'circle-stroke-color': HIGHLIGHT_COLOR,
+        'circle-stroke-width': 3,
+        'circle-stroke-opacity': ['case', highlighted, 1, 0],
+      },
+    })
+  }
+
   map.addLayer({
     id: o.id,
     type: 'circle',
     source: o.source,
     minzoom: o.minzoom,
-    ...(o.filter ? { filter: o.filter } : {}),
+    ...filter,
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], z1, r1, z2, r2] as ExpressionSpecification,
+      'circle-radius': radius(0),
       'circle-color': o.color,
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': o.strokeWidth,
+      'circle-opacity': ['case', dimmed, DIM_OPACITY, 1],
+      'circle-stroke-opacity': ['case', dimmed, DIM_OPACITY, 1],
     },
   })
+}
+
+/** 主要な山ごとに、薄くするか・おすすめの輪を付けるかを設定する */
+export function applyMountainStates(map: MapLibreMap, states: Map<string, MountainDisplayState>) {
+  if (!map.getSource(MAJOR_SOURCE)) return
+  map.removeFeatureState({ source: MAJOR_SOURCE })
+  for (const [id, state] of states) map.setFeatureState({ source: MAJOR_SOURCE, id }, state)
 }
 
 function addLabelLayer(

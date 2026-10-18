@@ -8,12 +8,17 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
+import { DateChips } from '../components/DateChips'
+import { SightChips } from '../components/SightChips'
 import { toMountain, type Mountain, type MountainProps } from '../data/mountains'
+import { displayStates, type SightFilter } from '../data/recommendations'
 import { loadJson, saveJson } from '../lib/storage'
-import { nextSaturday } from '../logic/date'
+import type { RecommendationsFile } from '../logic/recommendationsFile'
 import { baseMapStyle, HILLSHADE_LAYER_ID, type BaseMapType } from './baseMap'
+import { Legend } from './Legend'
 import {
   addMountainLayers,
+  applyMountainStates,
   MOUNTAIN_POINT_LAYERS,
   setSelectedMountain,
 } from './mountainLayers'
@@ -33,19 +38,37 @@ const DEFAULT_VIEW: MapViewState = { center: [137.5, 37.6], zoom: 4.3 }
 /** 指でタップしたときに山を拾う範囲（px） */
 const TAP_TOLERANCE = 12
 
+/** 他の画面から「この山を地図で見せて」と頼むときの値。seq を変えると同じ山でも再度動く */
+export type MapFocusRequest = { mountain: Mountain; seq: number }
+
 type Props = {
   baseMapType: BaseMapType
   /** 地図タブが表示されているか。非表示から戻ったときに描画サイズを合わせ直す */
   active: boolean
+  targetDate: string
+  onTargetDateChange: (date: string) => void
+  sight: SightFilter
+  onSightChange: (sight: SightFilter) => void
+  recommendations: RecommendationsFile | null
+  focus: MapFocusRequest | null
 }
 
-export function MapView({ baseMapType, active }: Props) {
+export function MapView({
+  baseMapType,
+  active,
+  targetDate,
+  onTargetDateChange,
+  sight,
+  onSightChange,
+  recommendations,
+  focus,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
+  const [layersReady, setLayersReady] = useState(false)
   const [selected, setSelected] = useState<Mountain | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
-  // ステップ4で日付の切り替えをつける。それまでは次の土曜日
-  const [targetDate] = useState(() => nextSaturday())
+  const [legendOpen, setLegendOpen] = useState(false)
 
   useEffect(() => {
     const view = loadJson(VIEW_KEY, DEFAULT_VIEW)
@@ -73,7 +96,8 @@ export function MapView({ baseMapType, active }: Props) {
       }),
       'bottom-left',
     )
-    map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
+    // 上部は日付などの切り替えに使うので、操作ボタンは右下にまとめる
+    map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
     map.addControl(
       new GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
@@ -89,7 +113,10 @@ export function MapView({ baseMapType, active }: Props) {
     })
 
     map.on('load', () => {
-      addMountainLayers(map).catch((e) => console.error(e))
+      addMountainLayers(map).then(
+        () => setLayersReady(true),
+        (e) => console.error(e),
+      )
     })
 
     // 山をタップしたら選ぶ。何もない所をタップしたら選択を外す
@@ -150,28 +177,66 @@ export function MapView({ baseMapType, active }: Props) {
     if (map) setSelectedMountain(map, selected ? [selected.lon, selected.lat] : null)
   }, [selected])
 
-  const selectFromSearch = (m: Mountain) => {
-    setSearchOpen(false)
-    setSelected(m)
+  // 選んだ日・見どころに合わせて、点を薄くしたりおすすめの輪を付けたりする
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !layersReady) return
+    applyMountainStates(map, recommendations ? displayStates(recommendations, targetDate, sight) : new Map())
+  }, [layersReady, recommendations, targetDate, sight])
+
+  const flyToMountain = (m: Mountain) => {
     mapRef.current?.flyTo({
       center: [m.lon, m.lat],
-      zoom: Math.max(mapRef.current.getZoom(), 12),
+      zoom: Math.max(mapRef.current.getZoom(), 11),
       // パネルの分だけ山を上にずらして表示する
       offset: [0, -PEEK_HEIGHT / 2],
     })
   }
 
+  const showMountain = (m: Mountain) => {
+    setSelected(m)
+    flyToMountain(m)
+  }
+
+  // おすすめ一覧などから山を選んだとき：選択は描画中に切り替え、地図の移動は描画後に行う
+  const [handledFocusSeq, setHandledFocusSeq] = useState(0)
+  if (focus && focus.seq !== handledFocusSeq) {
+    setHandledFocusSeq(focus.seq)
+    setSelected(focus.mountain)
+  }
+  useEffect(() => {
+    // タブを切り替えた直後は地図の大きさが変わっているので合わせてから動かす
+    mapRef.current?.resize()
+    if (focus) flyToMountain(focus.mountain)
+  }, [focus])
+
   return (
     <>
       <div ref={containerRef} className="map-view" />
 
-      <button type="button" className="map-search-button" onClick={() => setSearchOpen(true)}>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="M16 16l4.5 4.5" />
-        </svg>
-        山を検索
-      </button>
+      <div className="map-toolbar">
+        <div className="map-toolbar-row">
+          <button type="button" className="map-search-button" onClick={() => setSearchOpen(true)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="M16 16l4.5 4.5" />
+            </svg>
+            山を検索
+          </button>
+          <button type="button" className="map-legend-button" onClick={() => setLegendOpen((v) => !v)}>
+            凡例
+          </button>
+        </div>
+        <DateChips value={targetDate} onChange={onTargetDateChange} />
+        <SightChips date={targetDate} value={sight} onChange={onSightChange} />
+        {legendOpen && (
+          <Legend
+            date={targetDate}
+            generatedAt={recommendations?.generatedAt ?? null}
+            onClose={() => setLegendOpen(false)}
+          />
+        )}
+      </div>
 
       {selected && (
         <MountainSheet
@@ -182,7 +247,15 @@ export function MapView({ baseMapType, active }: Props) {
         />
       )}
 
-      {searchOpen && <SearchPanel onSelect={selectFromSearch} onClose={() => setSearchOpen(false)} />}
+      {searchOpen && (
+        <SearchPanel
+          onSelect={(m) => {
+            setSearchOpen(false)
+            showMountain(m)
+          }}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
     </>
   )
 }

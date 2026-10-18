@@ -1,6 +1,8 @@
 // 山頂の天気予報（Open-Meteo）の取得と、日ごとの集計。
 // アプリと定期計算（GitHub Actions）の両方で使うため、ブラウザ専用の機能には依存しない
 
+import type { DailyMin } from './koyo'
+
 export const FORECAST_DAYS = 7
 
 /** 登山する時間帯（この時間の天気でおすすめ度を判断する） */
@@ -40,21 +42,58 @@ const HOURLY_VARS = [
   'snow_depth',
 ]
 
-export async function fetchForecast(lat: number, lon: number, elevation?: number): Promise<Forecast> {
-  const params = new URLSearchParams({
-    latitude: lat.toFixed(4),
-    longitude: lon.toFixed(4),
+export type ForecastPoint = { lat: number; lon: number; elevation?: number }
+
+/** 複数の地点をまとめて問い合わせる（Open-Meteo は地点をカンマ区切りで受け付ける） */
+async function requestOpenMeteo<T>(points: ForecastPoint[], params: Record<string, string>): Promise<T[]> {
+  const search = new URLSearchParams({
+    latitude: points.map((p) => p.lat.toFixed(4)).join(','),
+    longitude: points.map((p) => p.lon.toFixed(4)).join(','),
+    timezone: 'Asia/Tokyo',
+    ...params,
+  })
+  // 標高を渡すと、山頂の高さに合わせて気温などを補正してくれる。
+  // 渡さなければ Open-Meteo が地形データの標高を使う。複数地点で一部だけ分からない場合は
+  // nan（補正なし）になるため、標高の分からない山は1地点ずつ問い合わせるのが望ましい
+  if (points.some((p) => p.elevation !== undefined)) {
+    search.set('elevation', points.map((p) => (p.elevation === undefined ? 'nan' : String(p.elevation))).join(','))
+  }
+  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${search}`)
+  if (!res.ok) throw new Error(`天気の取得に失敗しました（${res.status}）`)
+  const json = await res.json()
+  return points.length === 1 && !Array.isArray(json) ? [json] : json
+}
+
+/** 7日間の予報（1時間ごと）を地点ごとに取得する */
+export function fetchForecasts(points: ForecastPoint[]): Promise<Forecast[]> {
+  return requestOpenMeteo<Forecast>(points, {
     hourly: HOURLY_VARS.join(','),
     daily: 'temperature_2m_max,temperature_2m_min',
-    timezone: 'Asia/Tokyo',
     forecast_days: String(FORECAST_DAYS),
     wind_speed_unit: 'ms',
   })
-  // 標高を渡すと、山頂の高さに合わせて気温などを補正してくれる
-  if (elevation !== undefined) params.set('elevation', String(elevation))
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
-  if (!res.ok) throw new Error(`天気の取得に失敗しました（${res.status}）`)
-  return res.json()
+}
+
+export async function fetchForecast(point: ForecastPoint): Promise<Forecast> {
+  return (await fetchForecasts([point]))[0]
+}
+
+/** 過去 pastDays 日〜7日先の、日ごとの最低気温（紅葉の推定に使う） */
+export async function fetchDailyMins(points: ForecastPoint[], pastDays: number): Promise<DailyMin[][]> {
+  const results = await requestOpenMeteo<{ daily: { time: string[]; temperature_2m_min: (number | null)[] } }>(
+    points,
+    {
+      daily: 'temperature_2m_min',
+      past_days: String(pastDays),
+      forecast_days: String(FORECAST_DAYS),
+    },
+  )
+  return results.map((r) =>
+    r.daily.time.flatMap((date, i) => {
+      const tmin = r.daily.temperature_2m_min[i]
+      return tmin === null ? [] : [{ date, tmin }]
+    }),
+  )
 }
 
 export type DaySummary = {

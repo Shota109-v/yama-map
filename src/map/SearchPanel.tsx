@@ -1,19 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MountainBadge } from '../components/MountainBadge'
 import { formatEle, loadAllMountains, type Mountain } from '../data/mountains'
+import { inPrefecture, PREFECTURES } from '../data/prefectures'
 
 // 百名山を一覧で見られるよう100件まで表示する
 const MAX_RESULTS = 100
-
-const PREFECTURES = [
-  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
-  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
-  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
-  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
-  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
-  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
-  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
-]
 
 const MIN_ELE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500, 3000]
 
@@ -66,8 +57,7 @@ export function SearchPanel({ onSelect, onClose }: Props) {
     const hits = mountains.filter(
       (m) =>
         (!q || m.name.includes(q) || (m.yomi && m.yomi.includes(qKana))) &&
-        // 県境の山は「富山県 長野県」のように複数の県が入っている
-        (!pref || m.pref.split(/\s+/).includes(pref)) &&
+        (!pref || inPrefecture(m.pref, pref)) &&
         (!minEle || (m.ele ?? 0) >= minEle) &&
         inGroup(m, group),
     )

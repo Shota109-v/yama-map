@@ -25,3 +25,6 @@ dist-ssr
 
 # 山データ作成時の取得キャッシュ
 scripts/.cache/
+
+# 毎朝 GitHub Actions で作る（手元では npx tsx scripts/build-recommendations.ts）
+public/data/recommendations.json
