@@ -13,6 +13,22 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
+      workbox: {
+        // MapLibre のワーカー（.mjs）もアプリ本体と一緒にキャッシュする
+        globPatterns: ['**/*.{js,mjs,css,html,png,svg,ico,webmanifest}'],
+        // 一度見た地理院タイルは端末に残し、電波が弱い場所でも表示できるようにする
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/cyberjapandata\.gsi\.go\.jp\/xyz\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gsi-tiles',
+              expiration: { maxEntries: 3000, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
       manifest: {
         name: '山マップ',
         short_name: '山マップ',
