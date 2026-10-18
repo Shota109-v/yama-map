@@ -4,6 +4,8 @@ import { getMountainOutlook, type MountainOutlook } from '../data/forecastCache'
 import { formatEle, searchName, type Mountain } from '../data/mountains'
 import { formatDateShort, toDateKey } from '../logic/date'
 import { estimateKoyo, isKoyoSeason, KOYO_LABELS, type KoyoStage } from '../logic/koyo'
+import { isNotable, SIGHTS, sightScore, sightTitle } from '../logic/sights'
+import { SightTag } from '../components/SightTag'
 import type { DayOutlook } from '../logic/outlook'
 import { WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { CLIMB_HOURS, describeWeather, type DaySummary } from '../logic/weather'
@@ -196,8 +198,31 @@ export function MountainSheet({ mountain, targetDate, onClose, onRecord, onEditR
               {target.judgement.reasons.map((r) => (
                 <li key={r}>{r}</li>
               ))}
-              {target.koyo.stage !== 'off' && <li>紅葉：{KOYO_LABELS[target.koyo.stage]}（山頂付近）</li>}
+              {target.sights
+                .filter((s) => s.level === 'peak')
+                .map((s) => (
+                  <li key={s.id}>
+                    {SIGHTS[s.id].name}：{s.label}
+                  </li>
+                ))}
             </ul>
+          </section>
+        )}
+
+        {target && target.sights.length > 0 && (
+          <section>
+            <h3>見どころ（推定・{formatDateShort(targetDate)}）</h3>
+            <ul className="koyo-levels">
+              {target.sights.map((s) => (
+                <li key={s.id}>
+                  <span>{sightTitle(s.id)}</span>
+                  <span className={`koyo-tag level-${s.level}`}>{s.label}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="note">
+              気象データから推定した目安です。雲海は早朝の雲の高さ、霧氷は夜〜朝の気温・湿度・風、雪山は推定積雪から判断しています。
+            </p>
           </section>
         )}
 
@@ -347,12 +372,18 @@ function verdictLabel(day: DayOutlook): string {
   return WEATHER_CLASS_LABELS[day.judgement.cls]
 }
 
-/** 要点に出す判定の1行（おすすめ・紅葉・積雪） */
+/** 要点に出す判定の1行（おすすめ・期待できる見どころ・積雪） */
 function VerdictLine({ day }: { day: DayOutlook }) {
+  const notable = day.sights
+    .filter((s) => isNotable(s.level) || (s.id === 'koyo' && s.level === 'past'))
+    .sort((a, b) => sightScore(b.level) - sightScore(a.level))
+    .slice(0, 2)
   return (
     <div className="day-line">
       <span className={`verdict verdict-${verdictOf(day)}`}>{verdictLabel(day)}</span>
-      {day.koyo.stage !== 'off' && <KoyoTag stage={day.koyo.stage} prefix="紅葉 " />}
+      {notable.map((s) => (
+        <SightTag key={s.id} id={s.id} level={s.level} />
+      ))}
       {day.weather.snowDepthCm !== null && day.weather.snowDepthCm >= 1 && (
         <span className="warn">積雪 約{day.weather.snowDepthCm}cm</span>
       )}

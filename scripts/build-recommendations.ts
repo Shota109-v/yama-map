@@ -7,14 +7,14 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { MountainCollection } from '../src/data/mountains'
 import { toDateKey } from '../src/logic/date'
-import { koyoPastDaysNeeded, type DailyMin } from '../src/logic/koyo'
 import { buildOutlook } from '../src/logic/outlook'
 import {
-  encodeKoyo,
+  encodeLevel,
   encodeWeather,
   type RecommendationsFile,
 } from '../src/logic/recommendationsFile'
-import { fetchDailyMins, fetchForecasts, type ForecastPoint } from '../src/logic/weather'
+import { pastDaysNeeded, type SightId } from '../src/logic/sights'
+import { fetchDailyTemps, fetchForecasts, type DailyTemp, type ForecastPoint } from '../src/logic/weather'
 
 const DATA_DIR = fileURLToPath(new URL('../public/data/', import.meta.url))
 /** 1回の問い合わせでまとめる地点の数 */
@@ -67,28 +67,35 @@ async function main() {
   }))
 
   const today = toDateKey(new Date())
-  const pastDays = koyoPastDaysNeeded(today)
-  console.log(`${targets.length}山の予報を取得（紅葉用の過去データ: ${pastDays}日分）`)
+  const pastDays = pastDaysNeeded(today)
+  console.log(`${targets.length}山の予報を取得（見どころ用の過去データ: ${pastDays}日分）`)
 
   const file: RecommendationsFile = { generatedAt: new Date().toISOString(), dates: [], items: {} }
   const groups = chunks(targets)
   for (const [n, group] of groups.entries()) {
     const forecasts = await withRetry(() => fetchForecasts(group))
     await sleep(FORECAST_INTERVAL_MS)
-    let mins: DailyMin[][] = group.map(() => [])
+    let temps: DailyTemp[][] = group.map(() => [])
     if (pastDays > 0) {
-      mins = await withRetry(() => fetchDailyMins(group, pastDays))
+      temps = await withRetry(() => fetchDailyTemps(group, pastDays))
       await sleep(group.length > 1 ? PAST_INTERVAL_MS : FORECAST_INTERVAL_MS)
     }
 
     group.forEach((t, i) => {
-      const outlook = buildOutlook(forecasts[i], mins[i])
+      const outlook = buildOutlook(forecasts[i], temps[i])
       if (!file.dates.length) file.dates = outlook.map((d) => d.date)
+      // 見どころごとに、日付順の状態を1文字ずつ並べる（その日に時期外なら -）
+      const g: Partial<Record<SightId, string>> = {}
+      const ids = new Set(outlook.flatMap((d) => d.sights.map((s) => s.id)))
+      for (const id of ids) {
+        g[id] = outlook
+          .map((d) => encodeLevel(d.sights.find((s) => s.id === id)?.level ?? 'none'))
+          .join('')
+      }
       file.items[t.id] = {
         w: outlook.map((d) => encodeWeather(d.judgement.cls)).join(''),
-        k: outlook.map((d) => encodeKoyo(d.koyo.stage)).join(''),
-        s: outlook.map((d) => Math.round(d.score * 10) / 10),
         c: outlook.map((d) => d.weather.weatherCode),
+        g,
       }
     })
     if ((n + 1) % 5 === 0 || n === groups.length - 1) console.log(`  ${n + 1}/${groups.length}`)

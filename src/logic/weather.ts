@@ -1,22 +1,28 @@
 // 山頂の天気予報（Open-Meteo）の取得と、日ごとの集計。
 // アプリと定期計算（GitHub Actions）の両方で使うため、ブラウザ専用の機能には依存しない
 
-import type { DailyMin } from './koyo'
-
 export const FORECAST_DAYS = 7
 
 /** 登山する時間帯（この時間の天気でおすすめ度を判断する） */
 export const CLIMB_HOURS = { from: 6, to: 15 }
+/** 雲海を見る時間帯（早朝） */
+export const UNKAI_HOURS = { from: 5, to: 8 }
+/** 霧氷ができる時間帯（夜〜朝） */
+export const RIME_HOURS = { from: 0, to: 9 }
 
 export type HourlyForecast = {
   time: string[]
   temperature_2m: number[]
+  relative_humidity_2m: number[]
   precipitation: number[]
   precipitation_probability: (number | null)[]
   weather_code: number[]
   wind_speed_10m: number[]
   wind_gusts_10m: number[]
   cloud_cover: number[]
+  cloud_cover_low: number[]
+  cloud_cover_mid: number[]
+  cloud_cover_high: number[]
   snow_depth: (number | null)[]
 }
 
@@ -33,16 +39,23 @@ export type Forecast = {
 
 const HOURLY_VARS = [
   'temperature_2m',
+  'relative_humidity_2m',
   'precipitation',
   'precipitation_probability',
   'weather_code',
   'wind_speed_10m',
   'wind_gusts_10m',
   'cloud_cover',
+  'cloud_cover_low',
+  'cloud_cover_mid',
+  'cloud_cover_high',
   'snow_depth',
 ]
 
 export type ForecastPoint = { lat: number; lon: number; elevation?: number }
+
+/** 日ごとの気温（見どころの推定に使う） */
+export type DailyTemp = { date: string; tmin: number; tmean: number }
 
 /** 複数の地点をまとめて問い合わせる（Open-Meteo は地点をカンマ区切りで受け付ける） */
 async function requestOpenMeteo<T>(points: ForecastPoint[], params: Record<string, string>): Promise<T[]> {
@@ -78,20 +91,19 @@ export async function fetchForecast(point: ForecastPoint): Promise<Forecast> {
   return (await fetchForecasts([point]))[0]
 }
 
-/** 過去 pastDays 日〜7日先の、日ごとの最低気温（紅葉の推定に使う） */
-export async function fetchDailyMins(points: ForecastPoint[], pastDays: number): Promise<DailyMin[][]> {
-  const results = await requestOpenMeteo<{ daily: { time: string[]; temperature_2m_min: (number | null)[] } }>(
-    points,
-    {
-      daily: 'temperature_2m_min',
-      past_days: String(pastDays),
-      forecast_days: String(FORECAST_DAYS),
-    },
-  )
+/** 過去 pastDays 日〜7日先の、日ごとの最低・平均気温（紅葉・新緑・高山植物の推定に使う） */
+export async function fetchDailyTemps(points: ForecastPoint[], pastDays: number): Promise<DailyTemp[][]> {
+  type Daily = { time: string[]; temperature_2m_min: (number | null)[]; temperature_2m_mean: (number | null)[] }
+  const results = await requestOpenMeteo<{ daily: Daily }>(points, {
+    daily: 'temperature_2m_min,temperature_2m_mean',
+    past_days: String(pastDays),
+    forecast_days: String(FORECAST_DAYS),
+  })
   return results.map((r) =>
     r.daily.time.flatMap((date, i) => {
       const tmin = r.daily.temperature_2m_min[i]
-      return tmin === null ? [] : [{ date, tmin }]
+      const tmean = r.daily.temperature_2m_mean[i]
+      return tmin === null || tmean === null ? [] : [{ date, tmin, tmean }]
     }),
   )
 }
@@ -115,22 +127,43 @@ export type DaySummary = {
   thunder: boolean
   /** 正午の推定積雪深（cm）。不明なら null */
   snowDepthCm: number | null
+  /** 早朝（雲海の時間帯）の平均雲量（%）。低い雲・中くらいの雲・高い雲 */
+  dawnCloudLow: number
+  dawnCloudMid: number
+  dawnCloudHigh: number
+  /** 早朝の合計降水量（mm） */
+  dawnPrecip: number
+  /** 早朝の山頂の平均湿度（%）。100% 近いと山頂が雲（霧）の中 */
+  dawnHumidity: number
+  /** 夜〜朝（霧氷の時間帯）の最低気温（℃）・平均湿度（%）・平均風速（m/s） */
+  rimeMinTemp: number
+  rimeHumidity: number
+  rimeWind: number
 }
 
 const max = (values: number[]) => values.reduce((a, b) => Math.max(a, b), -Infinity)
+const min = (values: number[]) => values.reduce((a, b) => Math.min(a, b), Infinity)
+const avg = (values: number[]) => values.reduce((a, b) => a + b, 0) / Math.max(values.length, 1)
 
 export function summarizeDays(forecast: Forecast): DaySummary[] {
   const h = forecast.hourly
   return forecast.daily.time.map((date, i) => {
-    const idx: number[] = []
-    h.time.forEach((t, j) => {
-      const hour = Number(t.slice(11, 13))
-      if (t.startsWith(date) && hour >= CLIMB_HOURS.from && hour <= CLIMB_HOURS.to) idx.push(j)
-    })
-    const pick = <T>(arr: T[]) => idx.map((j) => arr[j])
-    const probs = pick(h.precipitation_probability).filter((v): v is number => v !== null)
-    const precip = pick(h.precipitation)
-    const codes = pick(h.weather_code)
+    /** その日の from〜to 時の値を取り出す関数 */
+    const hours = (from: number, to: number) => {
+      const idx: number[] = []
+      h.time.forEach((t, j) => {
+        const hour = Number(t.slice(11, 13))
+        if (t.startsWith(date) && hour >= from && hour <= to) idx.push(j)
+      })
+      return <T>(arr: T[]) => idx.map((j) => arr[j])
+    }
+    const climb = hours(CLIMB_HOURS.from, CLIMB_HOURS.to)
+    const dawn = hours(UNKAI_HOURS.from, UNKAI_HOURS.to)
+    const rime = hours(RIME_HOURS.from, RIME_HOURS.to)
+
+    const probs = climb(h.precipitation_probability).filter((v): v is number => v !== null)
+    const precip = climb(h.precipitation)
+    const codes = climb(h.weather_code)
     const noon = h.time.indexOf(`${date}T12:00`)
     const snow = noon >= 0 ? h.snow_depth[noon] : null
     return {
@@ -138,14 +171,22 @@ export function summarizeDays(forecast: Forecast): DaySummary[] {
       weatherCode: max(codes),
       tempMax: forecast.daily.temperature_2m_max[i],
       tempMin: forecast.daily.temperature_2m_min[i],
-      windMax: max(pick(h.wind_speed_10m)),
-      gustMax: max(pick(h.wind_gusts_10m)),
+      windMax: max(climb(h.wind_speed_10m)),
+      gustMax: max(climb(h.wind_gusts_10m)),
       precipProbMax: probs.length ? max(probs) : null,
       precipSum: precip.reduce((a, b) => a + b, 0),
       precipMaxHourly: max(precip),
-      cloudCoverAvg: pick(h.cloud_cover).reduce((a, b) => a + b, 0) / Math.max(idx.length, 1),
+      cloudCoverAvg: avg(climb(h.cloud_cover)),
       thunder: codes.some((c) => c >= 95),
       snowDepthCm: snow === null || snow === undefined ? null : Math.round(snow * 100),
+      dawnCloudLow: avg(dawn(h.cloud_cover_low)),
+      dawnCloudMid: avg(dawn(h.cloud_cover_mid)),
+      dawnCloudHigh: avg(dawn(h.cloud_cover_high)),
+      dawnPrecip: dawn(h.precipitation).reduce((a, b) => a + b, 0),
+      dawnHumidity: avg(dawn(h.relative_humidity_2m)),
+      rimeMinTemp: min(rime(h.temperature_2m)),
+      rimeHumidity: avg(rime(h.relative_humidity_2m)),
+      rimeWind: avg(rime(h.wind_speed_10m)),
     }
   })
 }

@@ -1,7 +1,7 @@
 import { toDateKey } from '../logic/date'
-import { koyoPastDaysNeeded, type DailyMin } from '../logic/koyo'
 import { buildOutlook, type DayOutlook } from '../logic/outlook'
-import { fetchDailyMins, fetchForecast, type ForecastPoint } from '../logic/weather'
+import { pastDaysNeeded } from '../logic/sights'
+import { fetchDailyTemps, fetchForecast, type DailyTemp, type ForecastPoint } from '../logic/weather'
 import type { Mountain } from './mountains'
 
 /** 紅葉を見る高さ（山頂からどれだけ下か、m） */
@@ -9,7 +9,7 @@ const KOYO_LEVEL_OFFSETS = [0, 500, 1000]
 /** これより低い高さは紅葉の推定に使わない（m） */
 const KOYO_MIN_ELEVATION = 300
 
-export type KoyoLevel = { elevation: number | null; mins: DailyMin[] }
+export type KoyoLevel = { elevation: number | null; mins: DailyTemp[] }
 
 export type MountainOutlook = {
   /** 予報を計算した標高（m） */
@@ -36,7 +36,7 @@ export function getMountainOutlook(m: Mountain): Promise<MountainOutlook> {
 }
 
 async function load(m: Mountain): Promise<MountainOutlook> {
-  const pastDays = koyoPastDaysNeeded(toDateKey(new Date()))
+  const pastDays = pastDaysNeeded(toDateKey(new Date()))
   const levels: ForecastPoint[] =
     m.ele === undefined
       ? [{ lat: m.lat, lon: m.lon }]
@@ -46,7 +46,7 @@ async function load(m: Mountain): Promise<MountainOutlook> {
 
   const [forecast, mins] = await Promise.all([
     fetchForecast({ lat: m.lat, lon: m.lon, elevation: m.ele }),
-    pastDays > 0 ? fetchDailyMins(levels, pastDays) : Promise.resolve([] as DailyMin[][]),
+    pastDays > 0 ? fetchDailyTemps(levels, pastDays) : Promise.resolve([] as DailyTemp[][]),
   ])
 
   return {

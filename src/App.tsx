@@ -5,6 +5,7 @@ import type { Mountain } from './data/mountains'
 import { loadRecommendations, type SightFilter } from './data/recommendations'
 import { loadJson, saveJson } from './lib/storage'
 import { nextSaturday } from './logic/date'
+import { sightsInSeason } from './logic/sights'
 import type { RecommendationsFile } from './logic/recommendationsFile'
 import type { BaseMapType } from './map/baseMap'
 import { MapView, type MapFocusRequest } from './map/MapView'
@@ -23,7 +24,10 @@ function App() {
   const [settings, setSettings] = useState(() => loadJson(SETTINGS_KEY, DEFAULT_SETTINGS))
   // 地図とおすすめ一覧で共通の条件。最初は次の土曜日
   const [targetDate, setTargetDate] = useState(() => nextSaturday())
-  const [sight, setSight] = useState<SightFilter>('all')
+  const [sightChoice, setSight] = useState<SightFilter>('all')
+  // 日付を変えて、選んでいた見どころが時期外になったら「すべて」に戻す
+  const sight: SightFilter =
+    sightChoice !== 'all' && !sightsInSeason(targetDate).includes(sightChoice) ? 'all' : sightChoice
   const [recommendations, setRecommendations] = useState<RecommendationsFile | null>(null)
   const [focus, setFocus] = useState<MapFocusRequest | null>(null)
   const [editor, setEditor] = useState<EditorRequest | null>(null)

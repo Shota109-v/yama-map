@@ -4,6 +4,7 @@
 // 判定の数値は作りながら調整する（要件定義 6章）。
 
 import { addDays } from './date'
+import type { DailyTemp } from './weather'
 
 export type KoyoStage = 'off' | 'before' | 'starting' | 'peak' | 'past'
 
@@ -27,8 +28,6 @@ const PAST_CHILL = 140
 const SEASON_FIRST_MONTH = 9
 const SEASON_LAST_MONTH = 12
 
-export type DailyMin = { date: string; tmin: number }
-
 export type KoyoEstimate = {
   stage: KoyoStage
   /** 色づき始めた日（推定）。まだなら null */
@@ -44,18 +43,13 @@ export function isKoyoSeason(dateKey: string): boolean {
   return month >= SEASON_FIRST_MONTH && month <= SEASON_LAST_MONTH
 }
 
-/** 紅葉の推定に必要な過去の日数（今日から数えて、9月の少し前まで） */
-export function koyoPastDaysNeeded(today: string): number {
-  if (!isKoyoSeason(today)) return 0
-  const seasonStart = `${today.slice(0, 4)}-0${SEASON_FIRST_MONTH}-01`
-  const from = addDays(seasonStart, -START_WINDOW_DAYS)
-  const days = Math.round((Date.parse(today) - Date.parse(from)) / 86400000)
-  // Open-Meteo で取れる過去の日数は最大 92 日
-  return Math.min(92, Math.max(0, days))
+/** 紅葉の推定で気温を見始める日（9月の少し前） */
+export function koyoDataStart(year: string): string {
+  return addDays(`${year}-0${SEASON_FIRST_MONTH}-01`, -START_WINDOW_DAYS)
 }
 
 /** targetDate 時点の紅葉の状態を推定する。mins は日付順で、targetDate までを含むこと */
-export function estimateKoyo(mins: DailyMin[], targetDate: string): KoyoEstimate {
+export function estimateKoyo(mins: DailyTemp[], targetDate: string): KoyoEstimate {
   if (!isKoyoSeason(targetDate)) return { stage: 'off', startDate: null, chill: 0, progress: 0 }
 
   const seasonStart = `${targetDate.slice(0, 4)}-0${SEASON_FIRST_MONTH}-01`

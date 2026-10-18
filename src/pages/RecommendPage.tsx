@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { DateSelect } from '../components/DateSelect'
 import { MountainBadge } from '../components/MountainBadge'
 import { SightChips } from '../components/SightChips'
+import { SightTag } from '../components/SightTag'
 import { formatEle, loadMajorMountains, toMountain, type Mountain } from '../data/mountains'
 import { inPrefecture, PREFECTURES } from '../data/prefectures'
 import type { SightFilter } from '../data/recommendations'
 import { useClimbedIds } from '../data/useRecords'
 import { formatDateShort } from '../logic/date'
-import { KOYO_LABELS } from '../logic/koyo'
-import { WEATHER_CLASS_LABELS } from '../logic/recommend'
+import { bestLevel, recommendScore, WEATHER_CLASS_LABELS } from '../logic/recommend'
+import { isNotable, sightScore, type SightId, type SightLevel } from '../logic/sights'
 import {
   decodeDay,
   type DayRecommendation,
@@ -35,7 +36,17 @@ type Props = {
   onSelect: (mountain: Mountain) => void
 }
 
-type Row = { mountain: Mountain; day: DayRecommendation }
+type Row = { mountain: Mountain; day: DayRecommendation; score: number }
+
+/** 一覧に出す見どころ（絞り込み中はその見どころ、そうでなければ期待できるものを点数順に2つまで） */
+function rowSights(day: DayRecommendation, sight: SightFilter): [SightId, SightLevel][] {
+  const entries = Object.entries(day.sights) as [SightId, SightLevel][]
+  if (sight !== 'all') return entries.filter(([id]) => id === sight)
+  return entries
+    .filter(([, level]) => isNotable(level) || level === 'past')
+    .sort((a, b) => sightScore(b[1]) - sightScore(a[1]))
+    .slice(0, 2)
+}
 
 export function RecommendPage({
   targetDate,
@@ -69,17 +80,19 @@ export function RecommendPage({
       if (group === 'famous' && m.rank === undefined) continue
       if (group === 'rank1' && m.rank !== 1) continue
       if (unclimbedOnly && climbedIds.has(m.id)) continue
-      if (sight === 'koyo' && day.koyo !== 'starting' && day.koyo !== 'peak') continue
+      const level = bestLevel(day.sights, sight)
+      // 見どころで絞り込んだときは、その見どころが期待できる山だけにする
+      if (sight !== 'all' && !isNotable(level)) continue
       if (day.weather === 'bad') {
         bad++
         if (!showBad) continue
       }
-      result.push({ mountain: m, day })
+      result.push({ mountain: m, day, score: recommendScore(day.weather, level) })
     }
     // おすすめ度 → 名山 → 標高の順
     result.sort(
       (a, b) =>
-        b.day.score - a.day.score ||
+        b.score - a.score ||
         (a.mountain.rank ?? 3) - (b.mountain.rank ?? 3) ||
         (b.mountain.ele ?? 0) - (a.mountain.ele ?? 0),
     )
@@ -161,9 +174,9 @@ export function RecommendPage({
                       <span>
                         {w?.icon} {WEATHER_CLASS_LABELS[day.weather]}
                       </span>
-                      {day.koyo !== 'off' && (
-                        <span className={`koyo-tag koyo-${day.koyo}`}>紅葉 {KOYO_LABELS[day.koyo]}</span>
-                      )}
+                      {rowSights(day, sight).map(([id, level]) => (
+                        <SightTag key={id} id={id} level={level} />
+                      ))}
                     </span>
                   </button>
                 </li>

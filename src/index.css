@@ -430,6 +430,33 @@ body,
   color: var(--text-sub);
 }
 
+/* 見どころの状態（紅葉と同じ色の考え方：見頃は濃く、可能性・始まりは淡く） */
+.level-peak {
+  background: #c2410c;
+  color: #ffffff;
+}
+
+.level-chance,
+.level-starting {
+  background: #fdecc8;
+  color: #8a5a00;
+}
+
+.level-past {
+  background: #ead8cc;
+  color: #7a4b2e;
+}
+
+.level-before {
+  background: #e5efe0;
+  color: #3f6b35;
+}
+
+.level-none {
+  background: var(--surface);
+  color: var(--text-sub);
+}
+
 .koyo-levels {
   margin: 0;
   padding: 0;

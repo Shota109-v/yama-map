@@ -1,7 +1,7 @@
 // おすすめ度の判定（要件定義 5章）。
 // 天気を最優先にし、悪天候の山は除外する。残りを天気の良さ → 見どころの順に並べる。
 
-import type { KoyoStage } from './koyo'
+import { sightScore, type SightId, type SightLevel } from './sights'
 import type { DaySummary } from './weather'
 
 export type WeatherClass = 'good' | 'fair' | 'bad'
@@ -35,21 +35,25 @@ export function judgeWeather(day: DaySummary): WeatherJudgement {
   return { cls: 'good', reasons: ['晴れて風が弱い'] }
 }
 
-/** 見どころの点数。見頃が最も高い */
-export function koyoScore(stage: KoyoStage, progress = 0): number {
-  if (stage === 'peak') return 5
-  if (stage === 'starting') return 1 + progress * 2
-  if (stage === 'past') return 1
-  return 0
+/** 見どころの絞り込み。'all' はすべての見どころ */
+export type SightFilter = 'all' | SightId
+
+/** 絞り込みに当てはまる見どころの状態のうち、最も良いもの */
+export function bestLevel(
+  sights: Partial<Record<SightId, SightLevel>>,
+  filter: SightFilter,
+): SightLevel {
+  const levels = filter === 'all' ? Object.values(sights) : [sights[filter] ?? 'none']
+  return levels.reduce<SightLevel>((best, l) => (sightScore(l) > sightScore(best) ? l : best), 'none')
 }
 
 /** おすすめ度。天気が悪ければ 0。天気の良さが見どころより常に優先される */
-export function recommendScore(cls: WeatherClass, koyo: number): number {
+export function recommendScore(cls: WeatherClass, level: SightLevel): number {
   if (cls === 'bad') return 0
-  return (cls === 'good' ? 20 : 10) + koyo
+  return (cls === 'good' ? 20 : 10) + sightScore(level)
 }
 
 /** 地図で「おすすめ」として強調するか（天気が悪くなく、見どころが見頃） */
-export function isHighlighted(cls: WeatherClass, stage: KoyoStage): boolean {
-  return cls !== 'bad' && stage === 'peak'
+export function isHighlighted(cls: WeatherClass, level: SightLevel): boolean {
+  return cls !== 'bad' && level === 'peak'
 }

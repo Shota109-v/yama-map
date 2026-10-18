@@ -1,12 +1,15 @@
-import { isHighlighted } from '../logic/recommend'
+import { bestLevel, isHighlighted, type SightFilter } from '../logic/recommend'
 import { decodeDay, type RecommendationsFile } from '../logic/recommendationsFile'
+import { isNotable } from '../logic/sights'
 
-/** 見どころの絞り込み。'all' はすべて、'koyo' は紅葉が色づいている山だけを目立たせる */
-export type SightFilter = 'all' | 'koyo'
+export type { SightFilter } from '../logic/recommend'
 
 export type MountainDisplayState = { dim: boolean; hl: boolean }
 
-/** 地図の点の見せ方を山ごとに決める（天気が悪い・絞り込みに合わない山は薄く、おすすめは輪付き） */
+/**
+ * 地図の点の見せ方を山ごとに決める。
+ * 天気が悪い山・絞り込んだ見どころが期待できない山は薄く、おすすめ（見頃）は輪付き
+ */
 export function displayStates(
   file: RecommendationsFile,
   date: string,
@@ -16,10 +19,10 @@ export function displayStates(
   for (const id of Object.keys(file.items)) {
     const day = decodeDay(file, id, date)
     if (!day) continue
-    const koyoMatch = day.koyo === 'starting' || day.koyo === 'peak'
+    const level = bestLevel(day.sights, sight)
     states.set(id, {
-      dim: day.weather === 'bad' || (sight === 'koyo' && !koyoMatch),
-      hl: isHighlighted(day.weather, day.koyo),
+      dim: day.weather === 'bad' || (sight !== 'all' && !isNotable(level)),
+      hl: isHighlighted(day.weather, level),
     })
   }
   return states

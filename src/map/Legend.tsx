@@ -30,10 +30,10 @@ export function Legend({ date, generatedAt, onClose }: Props) {
           <span className="legend-ring" style={{ borderColor: HIGHLIGHT_COLOR }}>
             <Dot color="#d64545" size={10} />
           </span>
-          おすすめ（天気が悪くなく、紅葉が見頃）
+          おすすめ（天気が悪くなく、見どころが見頃）
         </li>
         <li>
-          <Dot color="#d64545" size={12} faded /> 天気が悪い
+          <Dot color="#d64545" size={12} faded /> 天気が悪い（見どころで絞り込んだときは、期待できない山も薄く）
         </li>
       </ul>
       <p className="note">
