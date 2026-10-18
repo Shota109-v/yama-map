@@ -281,19 +281,6 @@ body,
   cursor: pointer;
 }
 
-.chip-sub {
-  font-size: 11px;
-  color: var(--text-sub);
-}
-
-.chip-sat .chip-sub {
-  color: #2563eb;
-}
-
-.chip-sun .chip-sub {
-  color: #dc2626;
-}
-
 .chip[aria-selected='true'] {
   border-color: var(--accent);
   background: var(--accent);
@@ -301,8 +288,24 @@ body,
   font-weight: 600;
 }
 
-.chip[aria-selected='true'] .chip-sub {
-  color: inherit;
+.map-toolbar-group {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 検索ボタンの横の日付プルダウン（ボタンと同じ見た目にそろえる） */
+.map-date-select {
+  min-width: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  /* 16px 未満だと iPhone が選択時に拡大してしまう */
+  font-size: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 /* 凡例 */

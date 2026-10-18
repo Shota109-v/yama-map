@@ -8,7 +8,7 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
-import { DateChips } from '../components/DateChips'
+import { DateSelect } from '../components/DateSelect'
 import { SightChips } from '../components/SightChips'
 import { toMountain, type Mountain, type MountainProps } from '../data/mountains'
 import { displayStates, type SightFilter } from '../data/recommendations'
@@ -216,18 +216,20 @@ export function MapView({
 
       <div className="map-toolbar">
         <div className="map-toolbar-row">
-          <button type="button" className="map-search-button" onClick={() => setSearchOpen(true)}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5" />
-              <path d="M16 16l4.5 4.5" />
-            </svg>
-            山を検索
-          </button>
+          <div className="map-toolbar-group">
+            <button type="button" className="map-search-button" onClick={() => setSearchOpen(true)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M16 16l4.5 4.5" />
+              </svg>
+              山を検索
+            </button>
+            <DateSelect value={targetDate} onChange={onTargetDateChange} className="map-date-select" />
+          </div>
           <button type="button" className="map-legend-button" onClick={() => setLegendOpen((v) => !v)}>
             凡例
           </button>
         </div>
-        <DateChips value={targetDate} onChange={onTargetDateChange} />
         <SightChips date={targetDate} value={sight} onChange={onSightChange} />
         {legendOpen && (
           <Legend

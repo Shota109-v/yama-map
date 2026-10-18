@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DateChips } from '../components/DateChips'
+import { DateSelect } from '../components/DateSelect'
 import { MountainBadge } from '../components/MountainBadge'
 import { SightChips } from '../components/SightChips'
 import { formatEle, loadMajorMountains, toMountain, type Mountain } from '../data/mountains'
@@ -86,9 +86,9 @@ export function RecommendPage({
     <section className="page recommend-page">
       <h1>おすすめ</h1>
       <div className="recommend-controls">
-        <DateChips value={targetDate} onChange={onTargetDateChange} />
         <SightChips date={targetDate} value={sight} onChange={onSightChange} />
         <div className="search-filters">
+          <DateSelect value={targetDate} onChange={onTargetDateChange} />
           <select value={pref} onChange={(e) => setPref(e.target.value)} aria-label="都道府県">
             <option value="">都道府県：すべて</option>
             {PREFECTURES.map((p) => (
