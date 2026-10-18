@@ -3,6 +3,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { loadJson, saveJson } from '../lib/storage'
+import { safeExternalUrl } from '../lib/url'
 import { formatDateShort, toDateKey } from '../logic/date'
 import { isKoyoSeason, type KoyoStage } from '../logic/koyo'
 import { searchName, type Mountain } from './mountains'
@@ -123,14 +124,16 @@ export async function researchLatest(apiKey: string, m: Mountain): Promise<Lates
       if (block.type === 'text') {
         texts.push(block.text)
         for (const c of block.citations ?? []) {
-          if (c.type === 'web_search_result_location') {
-            cited.add(c.url)
-            sources.set(c.url, { title: c.title ?? c.url, url: c.url })
+          const url = c.type === 'web_search_result_location' ? safeExternalUrl(c.url) : null
+          if (c.type === 'web_search_result_location' && url) {
+            cited.add(url)
+            sources.set(url, { title: c.title ?? url, url })
           }
         }
       } else if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
         for (const r of block.content) {
-          if (!sources.has(r.url)) sources.set(r.url, { title: r.title, url: r.url })
+          const url = safeExternalUrl(r.url)
+          if (url && !sources.has(url)) sources.set(url, { title: r.title, url })
         }
       }
     }

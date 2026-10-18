@@ -46,6 +46,14 @@ npm run dev
 - 毎朝4時（日本時間）：おすすめデータを計算して公開し直す
 - すぐ計算したいとき：GitHub の Actions →「Deploy to GitHub Pages」→「Run workflow」
 
+## セキュリティ
+
+- 公開版のページには Content-Security-Policy を付けている（`vite.config.ts`）。スクリプトはこのサイトのものだけ、通信先は地理院タイル・Open-Meteo・Anthropic API などに限る。新しい通信先を使うときはここに足す
+- AI の調査結果のリンクは http(s) だけを出す（`src/lib/url.ts`）
+- バックアップの読み込みは、形を確かめてから決まった項目だけを保存する。写真は埋め込み画像（`data:image/`）だけ受け付ける
+- GitHub Actions は外部アクションをコミットで固定し、ジョブごとに必要な権限だけを与える。依存パッケージは Dependabot が月1回更新の PR を作る
+- GitHub のリポジトリ設定（Settings → Code security）で、Dependabot alerts・Secret scanning・Push protection を有効にしておく
+
 ## 「最新情報を調べる」（AI）
 
 Claude API の Web 検索を使う。API キーはアプリの設定画面で入力し、端末の中（localStorage）にだけ保存する。

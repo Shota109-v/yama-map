@@ -18,7 +18,7 @@ export function Legend({ date, generatedAt, onClose }: Props) {
           <Dot color="#d64545" size={14} /> 日本百名山
         </li>
         <li>
-          <Dot color="#2f8f5b" size={12} /> 日本二百・三百名山
+          <Dot color="#2f8f5b" size={12} /> 日本三百名山（百名山以外）
         </li>
         <li>
           <Dot color="#7a8580" size={10} /> その他の山

@@ -13,7 +13,7 @@ type Group = 'all' | 'major' | 'famous' | 'rank1'
 const GROUP_OPTIONS: { value: Group; label: string }[] = [
   { value: 'all', label: '種類：すべて' },
   { value: 'major', label: '主要な山' },
-  { value: 'famous', label: '二百・三百名山まで' },
+  { value: 'famous', label: '三百名山' },
   { value: 'rank1', label: '百名山' },
 ]
 

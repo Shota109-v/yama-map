@@ -7,6 +7,7 @@ import {
   type LatestReport,
 } from '../data/latestResearch'
 import { searchName, type Mountain } from '../data/mountains'
+import { safeExternalUrl } from '../lib/url'
 import { formatDateShort } from '../logic/date'
 import { isKoyoSeason, KOYO_LABELS } from '../logic/koyo'
 
@@ -96,6 +97,11 @@ function Research({ mountain }: { mountain: Mountain }) {
 }
 
 function ReportView({ report }: { report: LatestReport }) {
+  // 情報源の URL は外から来たものなので、http(s) のリンクだけを出す（端末に保存済みの古い結果も含む）
+  const sources = report.sources.flatMap((s) => {
+    const url = safeExternalUrl(s.url)
+    return url ? [{ title: String(s.title), url }] : []
+  })
   const at = new Date(report.researchedAt).toLocaleString('ja-JP', {
     month: 'numeric',
     day: 'numeric',
@@ -114,11 +120,11 @@ function ReportView({ report }: { report: LatestReport }) {
       </div>
       <p>{report.summary}</p>
       {report.notes && <p className="warn">⚠ {report.notes}</p>}
-      {report.sources.length > 0 && (
+      {sources.length > 0 && (
         <ul className="research-sources">
-          {report.sources.map((s) => (
+          {sources.map((s) => (
             <li key={s.url}>
-              <a href={s.url} target="_blank" rel="noopener">
+              <a href={s.url} target="_blank" rel="noopener noreferrer">
                 {s.title}
               </a>
             </li>

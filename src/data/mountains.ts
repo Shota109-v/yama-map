@@ -1,6 +1,6 @@
 import type { FeatureCollection, Point } from 'geojson'
 
-/** 1 = 日本百名山、2 = 日本二百・三百名山 */
+/** 1 = 日本百名山、2 = 日本三百名山のうち百名山以外の200山 */
 export type FamousRank = 1 | 2
 
 export type MountainProps = {
@@ -23,7 +23,7 @@ export type Mountain = MountainProps & {
 
 export const RANK_LABELS: Record<FamousRank, string> = {
   1: '百名山',
-  2: '二百・三百名山',
+  2: '三百名山',
 }
 
 /** 名山なら「百名山」など、そうでなければ主要な山かどうかの表示 */

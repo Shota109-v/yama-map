@@ -13,13 +13,13 @@ export const SELECTED_LAYER = 'mountain-selected'
 
 /**
  * 拡大するにつれて表示する山を増やす。
- * 百名山 → 二百・三百名山 → その他の主要な山 → OSM のその他の山 の順に現れる
+ * 百名山 → 三百名山 → その他の主要な山 → OSM のその他の山 の順に現れる
  */
 const STAGES = {
   rank1: { pointZoom: 0, labelZoom: 6 },
-  rank2: { pointZoom: 6, labelZoom: 7.5 },
-  major: { pointZoom: 8, labelZoom: 9.5 },
-  other: { pointZoom: 10, labelZoom: 12 },
+  rank2: { pointZoom: 7.5, labelZoom: 8.5 },
+  major: { pointZoom: 9, labelZoom: 10 },
+  other: { pointZoom: 10.5, labelZoom: 12 },
 }
 
 /** その他の山（OSM）を表示し始める縮尺 */
@@ -27,7 +27,7 @@ export const OTHER_MIN_ZOOM = STAGES.other.pointZoom
 
 const COLORS = {
   rank1: '#d64545', // 赤：百名山
-  rank2: '#2f8f5b', // 緑：二百・三百名山
+  rank2: '#2f8f5b', // 緑：三百名山（百名山以外）
   major: '#7a8580', // 灰色：その他の主要な山
   other: '#97a09b', // 灰色（薄め）：OSM のその他の山
 }
@@ -69,7 +69,7 @@ export async function addMountainLayers(map: MapLibreMap) {
     filter: NO_RANK_FILTER,
     minzoom: STAGES.major.pointZoom,
     color: COLORS.major,
-    radius: [8, 4.5, 13, 7.5],
+    radius: [9, 4.5, 13, 7.5],
     strokeWidth: 1.5,
   })
   addPointLayer(map, {
@@ -78,7 +78,7 @@ export async function addMountainLayers(map: MapLibreMap) {
     filter: RANK2_FILTER,
     minzoom: STAGES.rank2.pointZoom,
     color: COLORS.rank2,
-    radius: [6, 5, 13, 9],
+    radius: [7.5, 5, 13, 9],
     strokeWidth: 1.5,
   })
   addPointLayer(map, {

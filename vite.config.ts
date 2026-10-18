@@ -1,6 +1,43 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/**
+ * 公開版のページに Content-Security-Policy を付ける（GitHub Pages ではヘッダーを付けられないので meta で指定する）。
+ * スクリプトはこのサイトのものだけ、通信先はこのアプリが使うサービスだけに限ることで、
+ * 万一スクリプトが紛れ込んでも API キーなどを外へ送れないようにする。
+ * 開発サーバーはインラインのスクリプトを使うので、ビルドしたときだけ付ける
+ */
+function contentSecurityPolicy(): Plugin {
+  const policy = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "worker-src 'self' blob:",
+    // React のインラインの style 属性と MapLibre の要素スタイルのため
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://cyberjapandata.gsi.go.jp",
+    'connect-src ' +
+      [
+        "'self'",
+        'data:',
+        'blob:',
+        'https://cyberjapandata.gsi.go.jp',
+        'https://demotiles.maplibre.org',
+        'https://api.open-meteo.com',
+        'https://api.anthropic.com',
+      ].join(' '),
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'none'",
+  ].join('; ')
+  return {
+    name: 'content-security-policy',
+    apply: 'build',
+    transformIndexHtml: (html) =>
+      html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`),
+  }
+}
 
 // GitHub Pages では https://<ユーザー名>.github.io/yama-map/ で公開する
 const base = process.env.GITHUB_PAGES ? '/yama-map/' : '/'
@@ -12,6 +49,7 @@ export default defineConfig({
   define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   plugins: [
     react(),
+    contentSecurityPolicy(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],

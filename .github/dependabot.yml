@@ -1,0 +1,15 @@
+# 依存パッケージと GitHub Actions に更新（セキュリティ修正を含む）があれば、月に1回 PR を作る
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      # まとめて1つの PR にする
+      all:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

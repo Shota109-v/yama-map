@@ -49,7 +49,8 @@ export function BackupSetting() {
       const r = await importBackup(file)
       setMessage(
         `読み込みました：記録 ${r.records}件・お気に入り ${r.favorites}件・写真 ${r.photos}枚` +
-          (r.skipped ? `（手元の方が新しい記録 ${r.skipped}件はそのまま）` : ''),
+          (r.skipped ? `（手元の方が新しい記録 ${r.skipped}件はそのまま）` : '') +
+          (r.invalid ? `。形が正しくないデータ ${r.invalid}件は読み飛ばしました` : ''),
       )
     } catch (e) {
       setMessage((e as Error).message)

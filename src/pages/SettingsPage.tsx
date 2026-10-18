@@ -67,7 +67,7 @@ export function SettingsPage({ baseMapType, onBaseMapTypeChange, recommendations
         <li>地図：国土地理院（地理院タイル）</li>
         <li>主要な山：国土地理院「日本の主な山岳標高」</li>
         <li>その他の山：© OpenStreetMap contributors（ODbL）</li>
-        <li>百名山・二百名山・三百名山の一覧：Wikidata（CC0）</li>
+        <li>百名山の一覧：Wikidata（CC0）、三百名山の一覧：Wikipedia（CC BY-SA）</li>
         <li>都道府県の判定：地球地図日本（国土地理院）</li>
         <li>天気予報：Open-Meteo（CC BY 4.0）</li>
       </ul>

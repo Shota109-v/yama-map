@@ -137,7 +137,7 @@ export function MapView({
         ],
         { layers },
       )
-      // 百名山 → 二百・三百名山 → その他の順に優先する（レイヤーは上にあるものから返る）
+      // 百名山 → 三百名山 → その他の順に優先する（レイヤーは上にあるものから返る）
       const f = features[0]
       if (f && f.geometry.type === 'Point') {
         const m = toMountain(f.properties as MountainProps, f.geometry.coordinates)

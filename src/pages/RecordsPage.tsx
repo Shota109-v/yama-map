@@ -1,16 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MountainBadge } from '../components/MountainBadge'
 import { PhotoThumb } from '../components/PhotoThumb'
 import { backupIsDue } from '../data/backup'
 import { db, refToMountain, type ClimbRecord } from '../data/db'
-import { formatEle, type Mountain } from '../data/mountains'
+import { formatEle, loadMajorMountains, type FamousRank, type Mountain } from '../data/mountains'
 import { useAllRecords, useFavorites } from '../data/useRecords'
 import { useSafeLiveQuery } from '../data/useSafeLiveQuery'
 import { formatDateShort } from '../logic/date'
 import { KOYO_LABELS } from '../logic/koyo'
 
-/** 名山の数（データの件数。百名山は 100、二百・三百名山は Wikidata に載っている分） */
-const FAMOUS_TOTAL = { 1: 100, 2: 196 }
 
 type View = 'records' | 'favorites'
 
@@ -25,10 +23,22 @@ export function RecordsPage({ onNewRecord, onEditRecord, onShowOnMap, onOpenSett
   const [view, setView] = useState<View>('records')
   const records = useAllRecords()
   const favorites = useFavorites()
+  const [currentRanks, setCurrentRanks] = useState<Map<string, FamousRank> | null>(null)
+
+  useEffect(() => {
+    loadMajorMountains().then((c) => {
+      const ranks = new Map<string, FamousRank>()
+      for (const f of c.features) if (f.properties.rank) ranks.set(f.properties.id, f.properties.rank)
+      setCurrentRanks(ranks)
+    })
+  }, [])
 
   const climbed = new Map<string, ClimbRecord['mountain']>()
   for (const r of records ?? []) climbed.set(r.mountainId, r.mountain)
-  const countRank = (rank: 1 | 2) => [...climbed.values()].filter((m) => m.rank === rank).length
+  // 記録には登録したときの山の情報が残っているので、名山かどうかは今の山のデータで判定する
+  const rankOf = (id: string) => currentRanks?.get(id) ?? climbed.get(id)?.rank
+  const climbedHyaku = [...climbed.keys()].filter((id) => rankOf(id) === 1).length
+  const climbedSanbyaku = [...climbed.keys()].filter((id) => rankOf(id) !== undefined).length
 
   return (
     <section className="page">
@@ -46,17 +56,17 @@ export function RecordsPage({ onNewRecord, onEditRecord, onShowOnMap, onOpenSett
         </div>
         <div>
           <strong>
-            {countRank(1)}
-            <small>/{FAMOUS_TOTAL[1]}</small>
+            {climbedHyaku}
+            <small>/100</small>
           </strong>
           <span>百名山</span>
         </div>
         <div>
           <strong>
-            {countRank(2)}
-            <small>/{FAMOUS_TOTAL[2]}</small>
+            {climbedSanbyaku}
+            <small>/300</small>
           </strong>
-          <span>二百・三百名山</span>
+          <span>三百名山</span>
         </div>
       </div>
 

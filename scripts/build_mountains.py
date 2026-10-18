@@ -18,6 +18,7 @@ import csv
 import io
 import json
 import math
+import re
 import ssl
 import sys
 import time
@@ -34,11 +35,16 @@ GSI_CSV_URL = "https://www.gsi.go.jp/KOKUJYOHO/MOUNTAIN/1003zan20260331.csv"
 PREFECTURE_BOUNDARY_URL = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
 WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql"
 
-# 日本百名山・二百名山・三百名山（Wikidata の項目）。二百・三百名山は追加分だけが登録されている
-FAMOUS_LISTS = {
-    "Q1156761": 1,  # 日本百名山
-    "Q11086204": 2,  # 日本二百名山
-    "Q11507122": 2,  # 日本三百名山
+WIKIPEDIA_API_URL = "https://ja.wikipedia.org/w/api.php"
+
+# 日本百名山は Wikidata の項目から取る（100山そろっている）
+WIKIDATA_HYAKU = "Q1156761"
+# 日本三百名山のうち百名山以外の200山は、Wikipedia の一覧（座標・標高つき）から取る。
+# Wikidata には一部の山しか登録されていないため。
+# 二百名山の荒沢岳は三百名山には含まれないので除く（三百名山 = 百名山100 + 二百名山99 + 三百名山101）
+WIKIPEDIA_LISTS = {
+    "日本二百名山": {"荒沢岳"},
+    "日本三百名山": set(),
 }
 # Wikidata の山名と地理院の山名が違うもの
 FAMOUS_ALIASES = {
@@ -294,26 +300,22 @@ def build_others(major: list[dict]) -> list[dict]:
 # ---------- 百名山・二百名山・三百名山 ----------
 
 
-def load_famous() -> list[dict]:
-    """[{name, rank, coords: [(lat, lon), ...]}]。rank 1 = 百名山、2 = 二百・三百名山"""
-    values = " ".join(f"wd:{q}" for q in FAMOUS_LISTS)
+def load_hyakumeizan() -> list[dict]:
+    """日本百名山（Wikidata）。[{name, rank: 1, coords: [(lat, lon), ...]}]"""
     query = f"""
-    SELECT ?m ?mLabel ?list ?coord WHERE {{
-      VALUES ?list {{ {values} }}
-      ?m wdt:P361 ?list .
+    SELECT ?m ?mLabel ?coord WHERE {{
+      ?m wdt:P361 wd:{WIKIDATA_HYAKU} .
       OPTIONAL {{ ?m wdt:P625 ?coord . }}
       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "ja". }}
     }}
     """
     url = f"{WIKIDATA_SPARQL_URL}?format=json&query={urllib.parse.quote(query)}"
-    rows = json.loads(cached("wikidata-famous.json", lambda: fetch(url)))["results"]["bindings"]
+    rows = json.loads(cached("wikidata-hyakumeizan.json", lambda: fetch(url)))["results"]["bindings"]
 
     items: dict[str, dict] = {}
     for r in rows:
         qid = r["m"]["value"].rsplit("/", 1)[1]
-        rank = FAMOUS_LISTS[r["list"]["value"].rsplit("/", 1)[1]]
-        it = items.setdefault(qid, {"name": r["mLabel"]["value"], "rank": rank, "coords": []})
-        it["rank"] = min(it["rank"], rank)
+        it = items.setdefault(qid, {"name": r["mLabel"]["value"], "rank": 1, "coords": []})
         if "coord" in r:
             lon, lat = map(float, r["coord"]["value"].removeprefix("Point(").removesuffix(")").split())
             it["coords"].append((lat, lon))
@@ -323,14 +325,44 @@ def load_famous() -> list[dict]:
     return list(items.values())
 
 
+# Wikipedia の山岳一覧の1行：「山名/よ:み[/記事名],経度/緯度,画像,標高,都道府県[/都道府県]」
+WIKI_ROW = re.compile(r"^\s*([^,\n/{}|]+)/([^,\n/]*)[^,\n]*,([\d.]+)/([\d.]+),[^,\n]*,(\d+),([^\n]+)$", re.M)
+
+
+def load_sanbyakumeizan() -> list[dict]:
+    """日本三百名山のうち百名山以外の200山（Wikipedia）。座標・標高・都道府県つき"""
+    items = []
+    for page, excluded in WIKIPEDIA_LISTS.items():
+        params = {"action": "parse", "page": page, "prop": "wikitext", "format": "json", "formatversion": "2"}
+        url = f"{WIKIPEDIA_API_URL}?{urllib.parse.urlencode(params)}"
+        text = json.loads(cached(f"wikipedia-{page}.json", lambda: fetch(url)))["parse"]["wikitext"]
+        rows = WIKI_ROW.findall(text)
+        log(f"  {page}: {len(rows)}山")
+        for name, yomi, lon, lat, ele, pref in rows:
+            name = name.split("（")[0].strip()
+            if name in excluded:
+                continue
+            items.append({
+                "name": name,
+                "rank": 2,
+                "coords": [(float(lat), float(lon))],
+                "yomi": yomi.replace(":", ""),
+                "ele": int(ele),
+                "pref": pref.strip().replace("/", " "),
+            })
+    return items
+
+
 def base_name(name: str) -> str:
     """「白山＜御前峰＞」→「白山」"""
     return name.split("＜")[0].split("(")[0].strip()
 
 
-def assign_famous_ranks(famous: list[dict], major: list[dict], others: list[dict]) -> None:
-    """百名山などに当たる山に rank をつける。主要な山から探し、なければその他の山から探す"""
-    unmatched = []
+def assign_famous_ranks(famous: list[dict], major: list[dict], others: list[dict]) -> list[dict]:
+    """
+    百名山などに当たる山に rank をつける。主要な山から探し、なければその他の山から探す。
+    どちらにもなかった名山を返す
+    """
     for pool in (major, others):
         grid = Grid(pool)
         remaining = []
@@ -353,9 +385,7 @@ def assign_famous_ranks(famous: list[dict], major: list[dict], others: list[dict
             else:
                 remaining.append(it)
         famous = remaining
-    unmatched = famous
-    if unmatched:
-        log(f"  対応する山が見つからなかった名山: {', '.join(it['name'] for it in unmatched)}")
+    return famous
 
 
 # ---------- 出力 ----------
@@ -396,9 +426,26 @@ def main() -> None:
     log("OpenStreetMap の山を読み込み中")
     others = build_others(major)
 
-    log("百名山・二百名山・三百名山を読み込み中")
-    assign_famous_ranks(load_famous(), major, others)
-    for rank, label in ((1, "百名山"), (2, "二百・三百名山")):
+    log("百名山・三百名山を読み込み中")
+    unmatched = assign_famous_ranks(load_hyakumeizan() + load_sanbyakumeizan(), major, others)
+    # どのデータにもなかった名山は、Wikipedia の座標で山を足す（百名山は座標が粗いので足さない）
+    for it in unmatched:
+        if it["rank"] == 1:
+            log(f"  対応する山が見つからなかった百名山: {it['name']}")
+            continue
+        lat, lon = it["coords"][0]
+        major.append({
+            "id": f"wiki-{it['name']}",
+            "name": it["name"],
+            "yomi": it["yomi"],
+            "ele": it["ele"],
+            "pref": it["pref"],
+            "lat": lat,
+            "lon": lon,
+            "rank": 2,
+        })
+        log(f"  Wikipedia の座標で追加: {it['name']}（{it['pref']}）")
+    for rank, label in ((1, "百名山"), (2, "三百名山（百名山以外）")):
         n_major = sum(1 for m in major if m.get("rank") == rank)
         n_other = sum(1 for m in others if m.get("rank") == rank)
         log(f"  {label}: 主要な山 {n_major}件 + その他の山 {n_other}件")
