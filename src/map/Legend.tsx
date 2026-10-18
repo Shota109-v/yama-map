@@ -1,5 +1,5 @@
 import { formatDateShort } from '../logic/date'
-import { HIGHLIGHT_COLOR } from './mountainLayers'
+import { CLIMBED_COLOR, HIGHLIGHT_COLOR } from './mountainLayers'
 
 type Props = { date: string; generatedAt: string | null; onClose: () => void }
 
@@ -22,6 +22,9 @@ export function Legend({ date, generatedAt, onClose }: Props) {
         </li>
         <li>
           <Dot color="#7a8580" size={10} /> その他の山
+        </li>
+        <li>
+          <Dot color={CLIMBED_COLOR} size={12} /> 登頂済み（記録した山。大きさは上のグループのまま）
         </li>
         <li>
           <span className="legend-ring" style={{ borderColor: HIGHLIGHT_COLOR }}>

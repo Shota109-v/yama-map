@@ -49,9 +49,9 @@ const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 const LABEL_FONT = ['Open Sans Semibold']
 
 export async function addMountainLayers(map: MapLibreMap) {
-  // おすすめ度を山ごとの状態（feature-state）で渡すため、id を feature の id にする
+  // おすすめ度や登頂済みを山ごとの状態（feature-state）で渡すため、id を feature の id にする
   map.addSource(MAJOR_SOURCE, { type: 'geojson', data: EMPTY, promoteId: 'id' })
-  map.addSource(OTHER_SOURCE, { type: 'geojson', data: EMPTY })
+  map.addSource(OTHER_SOURCE, { type: 'geojson', data: EMPTY, promoteId: 'id' })
   map.addSource(SELECTED_LAYER, { type: 'geojson', data: EMPTY })
 
   // 下に描くものから追加する
@@ -96,15 +96,15 @@ export async function addMountainLayers(map: MapLibreMap) {
   addLabelLayer(map, 'mountains-rank2-label', MAJOR_SOURCE, RANK2_FILTER, STAGES.rank2.labelZoom, 12)
   addLabelLayer(map, 'mountains-rank1-label', MAJOR_SOURCE, RANK1_FILTER, STAGES.rank1.labelZoom, 13)
 
-  // 選んだ山の強調表示（おすすめの輪のオレンジと区別するため青にする）
+  // 選んだ山の強調表示（おすすめの輪のオレンジ・登頂済みの青と区別するため紫にする）
   map.addLayer({
     id: SELECTED_LAYER,
     type: 'circle',
     source: SELECTED_LAYER,
     paint: {
       'circle-radius': 17,
-      'circle-color': 'rgba(37, 99, 235, 0.15)',
-      'circle-stroke-color': '#2563eb',
+      'circle-color': 'rgba(124, 58, 237, 0.15)',
+      'circle-stroke-color': '#7c3aed',
       'circle-stroke-width': 2.5,
     },
   })
@@ -138,9 +138,12 @@ type PointLayerOptions = {
 const DIM_OPACITY = 0.3
 const dimmed: ExpressionSpecification = ['boolean', ['feature-state', 'dim'], false]
 const highlighted: ExpressionSpecification = ['boolean', ['feature-state', 'hl'], false]
+const climbed: ExpressionSpecification = ['boolean', ['feature-state', 'climbed'], false]
 
 /** おすすめの山に付ける輪の色 */
 export const HIGHLIGHT_COLOR = '#f08c00'
+/** 登頂済みの山の色 */
+export const CLIMBED_COLOR = '#2563eb'
 
 function addPointLayer(map: MapLibreMap, o: PointLayerOptions) {
   const [z1, r1, z2, r2] = o.radius
@@ -174,7 +177,8 @@ function addPointLayer(map: MapLibreMap, o: PointLayerOptions) {
     ...filter,
     paint: {
       'circle-radius': radius(0),
-      'circle-color': o.color,
+      // 登頂済みの山は青にする（大きさはグループのまま）
+      'circle-color': ['case', climbed, CLIMBED_COLOR, o.color],
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': o.strokeWidth,
       'circle-opacity': ['case', dimmed, DIM_OPACITY, 1],
@@ -184,10 +188,28 @@ function addPointLayer(map: MapLibreMap, o: PointLayerOptions) {
 }
 
 /** 主要な山ごとに、薄くするか・おすすめの輪を付けるかを設定する */
+// 前回設定した山。登頂済みとおすすめは別々に更新するので、自分が付けた分だけを外す
+let displayedIds: string[] = []
+let climbedIdsShown: string[] = []
+
 export function applyMountainStates(map: MapLibreMap, states: Map<string, MountainDisplayState>) {
   if (!map.getSource(MAJOR_SOURCE)) return
-  map.removeFeatureState({ source: MAJOR_SOURCE })
+  for (const id of displayedIds) {
+    map.removeFeatureState({ source: MAJOR_SOURCE, id }, 'dim')
+    map.removeFeatureState({ source: MAJOR_SOURCE, id }, 'hl')
+  }
   for (const [id, state] of states) map.setFeatureState({ source: MAJOR_SOURCE, id }, state)
+  displayedIds = [...states.keys()]
+}
+
+/** 登頂済みの山を青くする。どちらのデータに入っている山か分からないので両方に設定する */
+export function applyClimbed(map: MapLibreMap, ids: Set<string>) {
+  if (!map.getSource(MAJOR_SOURCE)) return
+  for (const source of [MAJOR_SOURCE, OTHER_SOURCE]) {
+    for (const id of climbedIdsShown) map.removeFeatureState({ source, id }, 'climbed')
+    for (const id of ids) map.setFeatureState({ source, id }, { climbed: true })
+  }
+  climbedIdsShown = [...ids]
 }
 
 function addLabelLayer(

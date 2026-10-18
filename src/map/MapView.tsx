@@ -13,12 +13,14 @@ import { SightChips } from '../components/SightChips'
 import type { ClimbRecord } from '../data/db'
 import { toMountain, type Mountain, type MountainProps } from '../data/mountains'
 import { displayStates, type SightFilter } from '../data/recommendations'
+import { useClimbedIds } from '../data/useRecords'
 import { loadJson, saveJson } from '../lib/storage'
 import type { RecommendationsFile } from '../logic/recommendationsFile'
 import { baseMapStyle, HILLSHADE_LAYER_ID, type BaseMapType } from './baseMap'
 import { Legend } from './Legend'
 import {
   addMountainLayers,
+  applyClimbed,
   applyMountainStates,
   MOUNTAIN_POINT_LAYERS,
   setSelectedMountain,
@@ -154,6 +156,8 @@ export function MapView({
     }
 
     mapRef.current = map
+    // 開発中だけ、ブラウザの開発ツールから地図を調べられるようにする
+    if (import.meta.env.DEV) (window as unknown as { __map: MapLibreMap }).__map = map
     return () => {
       map.remove()
       mapRef.current = null
@@ -188,6 +192,13 @@ export function MapView({
     if (!map || !layersReady) return
     applyMountainStates(map, recommendations ? displayStates(recommendations, targetDate, sight) : new Map())
   }, [layersReady, recommendations, targetDate, sight])
+
+  // 記録した山を青くする（記録が増減するとすぐ反映される）
+  const climbedIds = useClimbedIds()
+  useEffect(() => {
+    const map = mapRef.current
+    if (map && layersReady) applyClimbed(map, climbedIds)
+  }, [layersReady, climbedIds])
 
   const flyToMountain = (m: Mountain) => {
     mapRef.current?.flyTo({
