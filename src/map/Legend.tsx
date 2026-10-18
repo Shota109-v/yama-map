@@ -1,10 +1,12 @@
+import type { SightFilter } from '../data/recommendations'
 import { formatDateShort } from '../logic/date'
-import { CLIMBED_COLOR, HIGHLIGHT_COLOR } from './mountainLayers'
+import { SIGHTS } from '../logic/sights'
+import { CLIMBED_COLOR } from './mountainLayers'
 
-type Props = { date: string; generatedAt: string | null; onClose: () => void }
+type Props = { date: string; sight: SightFilter; generatedAt: string | null; onClose: () => void }
 
 /** 地図の点の見方 */
-export function Legend({ date, generatedAt, onClose }: Props) {
+export function Legend({ date, sight, generatedAt, onClose }: Props) {
   return (
     <div className="legend" role="dialog" aria-label="凡例">
       <div className="legend-header">
@@ -26,12 +28,21 @@ export function Legend({ date, generatedAt, onClose }: Props) {
         <li>
           <Dot color={CLIMBED_COLOR} size={12} /> 登頂済み（記録した山。大きさは上のグループのまま）
         </li>
-        <li>
-          <span className="legend-ring" style={{ borderColor: HIGHLIGHT_COLOR }}>
-            <Dot color="#d64545" size={10} />
-          </span>
-          おすすめ（天気が悪くなく、見どころが見頃）
-        </li>
+        {sight === 'all' ? (
+          <li>
+            <span className="legend-ring" style={{ borderColor: '#9ca3af' }}>
+              <Dot color="#d64545" size={10} />
+            </span>
+            上の見どころ（紅葉など）を選ぶと、天気が悪くなく見頃の山に色の輪が付きます
+          </li>
+        ) : (
+          <li>
+            <span className="legend-ring" style={{ borderColor: SIGHTS[sight].color }}>
+              <Dot color="#d64545" size={10} />
+            </span>
+            {SIGHTS[sight].name}が見頃（天気が悪くない山）
+          </li>
+        )}
         <li>
           <Dot color="#d64545" size={12} faded /> 天気が悪い（見どころで絞り込んだときは、期待できない山も薄く）
         </li>

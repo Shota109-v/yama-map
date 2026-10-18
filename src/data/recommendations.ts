@@ -8,7 +8,8 @@ export type MountainDisplayState = { dim: boolean; hl: boolean }
 
 /**
  * 地図の点の見せ方を山ごとに決める。
- * 天気が悪い山・絞り込んだ見どころが期待できない山は薄く、おすすめ（見頃）は輪付き
+ * 天気が悪い山・絞り込んだ見どころが期待できない山は薄くする。
+ * 輪は見どころを選んだときだけ、その見どころが見頃の山に付ける（「すべて」では付けない）
  */
 export function displayStates(
   file: RecommendationsFile,
@@ -22,7 +23,7 @@ export function displayStates(
     const level = bestLevel(day.sights, sight)
     states.set(id, {
       dim: day.weather === 'bad' || (sight !== 'all' && !isNotable(level)),
-      hl: isHighlighted(day.weather, level),
+      hl: sight !== 'all' && isHighlighted(day.weather, level),
     })
   }
   return states

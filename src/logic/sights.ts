@@ -15,15 +15,16 @@ export type SightLevel = 'peak' | 'starting' | 'chance' | 'past' | 'before' | 'n
 
 export type SightResult = { id: SightId; level: SightLevel; label: string }
 
-type SightDef = { name: string; icon: string; months: number[] }
+/** color は、その見どころを選んだときに見頃の山を囲む輪の色 */
+type SightDef = { name: string; icon: string; months: number[]; color: string }
 
 export const SIGHTS: Record<SightId, SightDef> = {
-  koyo: { name: '紅葉', icon: '🍁', months: [9, 10, 11, 12] },
-  snow: { name: '雪山', icon: '🏔️', months: [10, 11, 12, 1, 2, 3, 4, 5] },
-  unkai: { name: '雲海', icon: '☁️', months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
-  muhyo: { name: '霧氷', icon: '❄️', months: [10, 11, 12, 1, 2, 3, 4] },
-  shinryoku: { name: '新緑', icon: '🌱', months: [4, 5, 6] },
-  alpine: { name: '高山植物', icon: '🌼', months: [6, 7, 8] },
+  koyo: { name: '紅葉', icon: '🍁', months: [9, 10, 11, 12], color: '#f08c00' },
+  snow: { name: '雪山', icon: '🏔️', months: [10, 11, 12, 1, 2, 3, 4, 5], color: '#38bdf8' },
+  unkai: { name: '雲海', icon: '☁️', months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], color: '#64748b' },
+  muhyo: { name: '霧氷', icon: '❄️', months: [10, 11, 12, 1, 2, 3, 4], color: '#7dd3fc' },
+  shinryoku: { name: '新緑', icon: '🌱', months: [4, 5, 6], color: '#84cc16' },
+  alpine: { name: '高山植物', icon: '🌼', months: [6, 7, 8], color: '#ec4899' },
 }
 
 export const SIGHT_IDS = Object.keys(SIGHTS) as SightId[]

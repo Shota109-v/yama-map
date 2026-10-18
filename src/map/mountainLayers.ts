@@ -140,8 +140,8 @@ const dimmed: ExpressionSpecification = ['boolean', ['feature-state', 'dim'], fa
 const highlighted: ExpressionSpecification = ['boolean', ['feature-state', 'hl'], false]
 const climbed: ExpressionSpecification = ['boolean', ['feature-state', 'climbed'], false]
 
-/** おすすめの山に付ける輪の色 */
-export const HIGHLIGHT_COLOR = '#f08c00'
+/** 見頃の山に付ける輪の色（最初の値。選んだ見どころに合わせて setHighlightColor で変える） */
+const HIGHLIGHT_COLOR = '#f08c00'
 /** 登頂済みの山の色 */
 export const CLIMBED_COLOR = '#2563eb'
 
@@ -200,6 +200,14 @@ export function applyMountainStates(map: MapLibreMap, states: Map<string, Mounta
   }
   for (const [id, state] of states) map.setFeatureState({ source: MAJOR_SOURCE, id }, state)
   displayedIds = [...states.keys()]
+}
+
+/** 見頃の山を囲む輪の色を、選んだ見どころの色にする */
+export function setHighlightColor(map: MapLibreMap, color: string) {
+  for (const id of MOUNTAIN_POINT_LAYERS) {
+    const ring = `${id}-ring`
+    if (map.getLayer(ring)) map.setPaintProperty(ring, 'circle-stroke-color', color)
+  }
 }
 
 /** 登頂済みの山を青くする。どちらのデータに入っている山か分からないので両方に設定する */
