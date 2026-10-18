@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { InstallGuide } from './components/InstallGuide'
+import { OfflineBanner } from './components/OfflineBanner'
 import { TabBar, type TabId } from './components/TabBar'
 import { requestPersistentStorage, toMountainRef } from './data/db'
 import type { Mountain } from './data/mountains'
@@ -51,6 +53,7 @@ function App() {
 
   return (
     <div className="app">
+      <OfflineBanner />
       <main className="content">
         {/* 地図は他のタブを開いている間も残し、表示位置などを保つ */}
         <div className="tab-panel" hidden={tab !== 'map'}>
@@ -89,11 +92,13 @@ function App() {
           <SettingsPage
             baseMapType={settings.baseMapType}
             onBaseMapTypeChange={(baseMapType) => updateSettings({ baseMapType })}
+            recommendations={recommendations}
           />
         )}
       </main>
       <TabBar current={tab} onChange={setTab} />
       {editor && <RecordEditor {...editor} onClose={() => setEditor(null)} />}
+      <InstallGuide />
     </div>
   )
 }

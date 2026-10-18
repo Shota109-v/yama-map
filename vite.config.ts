@@ -8,6 +8,8 @@ const base = process.env.GITHUB_PAGES ? '/yama-map/' : '/'
 // https://vite.dev/config/
 export default defineConfig({
   base,
+  // 設定画面の「このアプリについて」に出すビルド日時
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   plugins: [
     react(),
     VitePWA({

@@ -1,14 +1,22 @@
 import { useState } from 'react'
+import { InstallSteps } from '../components/InstallGuide'
 import { loadApiKey, saveApiKey } from '../data/apiKey'
+import { isStandalone } from '../lib/pwa'
+import type { RecommendationsFile } from '../logic/recommendationsFile'
 import { BASE_MAP_LABELS, type BaseMapType } from '../map/baseMap'
 import { BackupSetting } from './BackupSetting'
 
 type Props = {
   baseMapType: BaseMapType
   onBaseMapTypeChange: (type: BaseMapType) => void
+  recommendations: RecommendationsFile | null
 }
 
-export function SettingsPage({ baseMapType, onBaseMapTypeChange }: Props) {
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+export function SettingsPage({ baseMapType, onBaseMapTypeChange, recommendations }: Props) {
+  const standalone = isStandalone()
   return (
     <section className="page">
       <h1>設定</h1>
@@ -33,6 +41,26 @@ export function SettingsPage({ baseMapType, onBaseMapTypeChange }: Props) {
 
       <h2>「最新情報を調べる」（Claude API）</h2>
       <ApiKeySetting />
+
+      <h2>ホーム画面への追加</h2>
+      {standalone ? (
+        <p className="sub">ホーム画面から開いています。データは自動で消されにくい状態です。</p>
+      ) : (
+        <>
+          <p className="warn">まだホーム画面から開いていません。</p>
+          <InstallSteps />
+        </>
+      )}
+
+      <h2>このアプリについて</h2>
+      <ul className="sub credits">
+        <li>アプリの版：{formatDateTime(__BUILD_TIME__)} 版</li>
+        <li>
+          おすすめデータ：
+          {recommendations ? `${formatDateTime(recommendations.generatedAt)} に計算（毎朝4時ごろ更新）` : 'まだありません'}
+        </li>
+        <li>表示している情報は目安です。出発前に公式の気象情報と現地の最新情報を確認してください。</li>
+      </ul>
 
       <h2>出典</h2>
       <ul className="sub credits">
