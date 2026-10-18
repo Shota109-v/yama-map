@@ -1,10 +1,11 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { MountainBadge } from '../components/MountainBadge'
 import { PhotoThumb } from '../components/PhotoThumb'
 import { backupIsDue } from '../data/backup'
 import { db, refToMountain, type ClimbRecord } from '../data/db'
 import { formatEle, type Mountain } from '../data/mountains'
+import { useAllRecords, useFavorites } from '../data/useRecords'
+import { useSafeLiveQuery } from '../data/useSafeLiveQuery'
 import { formatDateShort } from '../logic/date'
 import { KOYO_LABELS } from '../logic/koyo'
 
@@ -22,8 +23,8 @@ type Props = {
 
 export function RecordsPage({ onNewRecord, onEditRecord, onShowOnMap, onOpenSettings }: Props) {
   const [view, setView] = useState<View>('records')
-  const records = useLiveQuery(() => db.records.orderBy('date').reverse().toArray(), [])
-  const favorites = useLiveQuery(() => db.favorites.orderBy('addedAt').reverse().toArray(), [])
+  const records = useAllRecords()
+  const favorites = useFavorites()
 
   const climbed = new Map<string, ClimbRecord['mountain']>()
   for (const r of records ?? []) climbed.set(r.mountainId, r.mountain)
@@ -132,7 +133,7 @@ export function RecordsPage({ onNewRecord, onEditRecord, onShowOnMap, onOpenSett
 
 function RecordThumb({ record }: { record: ClimbRecord }) {
   const firstId = record.photoIds[0]
-  const photo = useLiveQuery(async () => (firstId ? db.photos.get(firstId) : undefined), [firstId])
+  const photo = useSafeLiveQuery(async () => (firstId ? db.photos.get(firstId) : undefined), [firstId], undefined)
   if (!photo) return <span className="record-thumb record-thumb-empty">⛰</span>
   return <PhotoThumb blob={photo.thumb} className="record-thumb" />
 }

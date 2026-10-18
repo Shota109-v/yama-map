@@ -1,5 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { db, toMountainRef, type ClimbRecord } from '../data/db'
+import { useSafeLiveQuery } from '../data/useSafeLiveQuery'
 import type { Mountain } from '../data/mountains'
 import { toggleFavorite } from '../data/records'
 import { formatDateShort } from '../logic/date'
@@ -7,7 +7,7 @@ import { KOYO_LABELS } from '../logic/koyo'
 
 /** お気に入りの☆ボタン */
 export function FavoriteButton({ mountain }: { mountain: Mountain }) {
-  const isFavorite = useLiveQuery(async () => !!(await db.favorites.get(mountain.id)), [mountain.id])
+  const isFavorite = useSafeLiveQuery(async () => !!(await db.favorites.get(mountain.id)), [mountain.id], false)
   return (
     <button
       type="button"

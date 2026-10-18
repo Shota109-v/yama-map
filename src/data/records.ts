@@ -65,7 +65,9 @@ export async function saveRecord(draft: RecordDraft): Promise<string> {
 
 export async function deleteRecord(id: string): Promise<void> {
   await db.transaction('rw', db.records, db.photos, async () => {
-    await db.photos.where('recordId').equals(id).delete()
+    // 索引のカーソルを使わず、記録が持っている写真の id で消す（iPhone の WebKit 対策）
+    const record = await db.records.get(id)
+    if (record?.photoIds.length) await db.photos.bulkDelete(record.photoIds)
     await db.records.delete(id)
   })
 }

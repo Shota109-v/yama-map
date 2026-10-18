@@ -1,4 +1,3 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { MountainBadge } from '../components/MountainBadge'
 import { PhotoThumb } from '../components/PhotoThumb'
@@ -13,6 +12,7 @@ import {
 } from '../data/db'
 import { formatEle } from '../data/mountains'
 import { deleteRecord, saveRecord } from '../data/records'
+import { useSafeLiveQuery } from '../data/useSafeLiveQuery'
 import { toDateKey } from '../logic/date'
 import { KOYO_LABELS } from '../logic/koyo'
 import { SearchPanel } from '../map/SearchPanel'
@@ -35,10 +35,14 @@ export function RecordEditor({ record, mountain: initialMountain, onClose }: Pro
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const existingPhotos = useLiveQuery(async (): Promise<Photo[]> => {
-    if (!record) return []
-    return (await db.photos.bulkGet(record.photoIds)).filter((p): p is Photo => p !== undefined)
-  }, [record])
+  const existingPhotos = useSafeLiveQuery(
+    async (): Promise<Photo[]> => {
+      if (!record) return []
+      return (await db.photos.bulkGet(record.photoIds)).filter((p): p is Photo => p !== undefined)
+    },
+    [record],
+    [],
+  )
 
   // 端末の「戻る」操作の代わりに Esc でも閉じられるようにする（PC 用）
   useEffect(() => {
