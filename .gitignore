@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 山データ作成時の取得キャッシュ
+scripts/.cache/

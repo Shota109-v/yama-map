@@ -15,6 +15,8 @@ export const GSI_TILE_ORIGIN = 'https://cyberjapandata.gsi.go.jp'
 // 標準地図の上に陰影起伏図を重ねる。陰影の表示・非表示は setBaseMapType で切り替える
 export const baseMapStyle: StyleSpecification = {
   version: 8,
+  // 英数字の文字データ。日本語は端末のフォントで描く（MapView の localIdeographFontFamily）
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   sources: {
     std: {
       type: 'raster',

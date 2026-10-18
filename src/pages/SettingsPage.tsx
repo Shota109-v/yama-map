@@ -26,7 +26,12 @@ export function SettingsPage({ baseMapType, onBaseMapTypeChange }: Props) {
       </div>
 
       <h2>出典</h2>
-      <p className="sub">地図：国土地理院（地理院タイル）</p>
+      <ul className="sub credits">
+        <li>地図：国土地理院（地理院タイル）</li>
+        <li>主要な山：国土地理院「日本の主な山岳標高」</li>
+        <li>その他の山：© OpenStreetMap contributors（ODbL）</li>
+        <li>都道府県の判定：地球地図日本（国土地理院）</li>
+      </ul>
     </section>
   )
 }

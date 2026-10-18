@@ -19,6 +19,12 @@ export default defineConfig({
         // 一度見た地理院タイルは端末に残し、電波が弱い場所でも表示できるようにする
         runtimeCaching: [
           {
+            // 山のデータ。手元の版をすぐ使い、裏で新しい版を取り直す
+            urlPattern: /\/data\/.*\.geojson$/,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'app-data' },
+          },
+          {
             urlPattern: /^https:\/\/cyberjapandata\.gsi\.go\.jp\/xyz\//,
             handler: 'CacheFirst',
             options: {
