@@ -5,6 +5,7 @@ import { SightChips } from '../components/SightChips'
 import { formatEle, loadMajorMountains, toMountain, type Mountain } from '../data/mountains'
 import { inPrefecture, PREFECTURES } from '../data/prefectures'
 import type { SightFilter } from '../data/recommendations'
+import { useClimbedIds } from '../data/useRecords'
 import { formatDateShort } from '../logic/date'
 import { KOYO_LABELS } from '../logic/koyo'
 import { WEATHER_CLASS_LABELS } from '../logic/recommend'
@@ -48,6 +49,8 @@ export function RecommendPage({
   const [pref, setPref] = useState('')
   const [group, setGroup] = useState<Group>('all')
   const [showBad, setShowBad] = useState(false)
+  const [unclimbedOnly, setUnclimbedOnly] = useState(false)
+  const climbedIds = useClimbedIds()
 
   useEffect(() => {
     loadMajorMountains().then((c) =>
@@ -65,6 +68,7 @@ export function RecommendPage({
       if (pref && !inPrefecture(m.pref, pref)) continue
       if (group === 'famous' && m.rank === undefined) continue
       if (group === 'rank1' && m.rank !== 1) continue
+      if (unclimbedOnly && climbedIds.has(m.id)) continue
       if (sight === 'koyo' && day.koyo !== 'starting' && day.koyo !== 'peak') continue
       if (day.weather === 'bad') {
         bad++
@@ -80,7 +84,7 @@ export function RecommendPage({
         (b.mountain.ele ?? 0) - (a.mountain.ele ?? 0),
     )
     return { rows: result, badCount: bad }
-  }, [mountains, recommendations, targetDate, pref, group, sight, showBad])
+  }, [mountains, recommendations, targetDate, pref, group, sight, showBad, unclimbedOnly, climbedIds])
 
   return (
     <section className="page recommend-page">
@@ -121,12 +125,18 @@ export function RecommendPage({
             {rows.length > MAX_ROWS && `（上位${MAX_ROWS}山を表示）`}
             {badCount > 0 && !showBad && `・天気が悪い${badCount}山を除外`}
           </p>
-          {badCount > 0 && (
+          <div className="check-row">
             <label className="check">
-              <input type="checkbox" checked={showBad} onChange={(e) => setShowBad(e.target.checked)} />
-              天気が悪い山も表示する
+              <input type="checkbox" checked={unclimbedOnly} onChange={(e) => setUnclimbedOnly(e.target.checked)} />
+              未登頂の山だけ
             </label>
-          )}
+            {badCount > 0 && (
+              <label className="check">
+                <input type="checkbox" checked={showBad} onChange={(e) => setShowBad(e.target.checked)} />
+                天気が悪い山も表示する
+              </label>
+            )}
+          </div>
           <ul className="recommend-list">
             {rows.slice(0, MAX_ROWS).map(({ mountain: m, day }) => {
               const w = day.weatherCode === null ? null : describeWeather(day.weatherCode)
@@ -141,6 +151,7 @@ export function RecommendPage({
                       <span className="result-name">
                         {m.name}
                         <MountainBadge mountain={m} />
+                        {climbedIds.has(m.id) && <span className="badge badge-climbed">登頂済み</span>}
                       </span>
                       <span className="result-meta">
                         {m.pref}・{formatEle(m.ele)}

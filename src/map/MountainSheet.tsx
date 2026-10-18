@@ -7,7 +7,10 @@ import { estimateKoyo, isKoyoSeason, KOYO_LABELS, type KoyoStage } from '../logi
 import type { DayOutlook } from '../logic/outlook'
 import { WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { CLIMB_HOURS, describeWeather, type DaySummary } from '../logic/weather'
+import type { ClimbRecord } from '../data/db'
 import { LatestInfoSection } from './LatestInfo'
+import { useMountainRecords } from '../data/useRecords'
+import { FavoriteButton, MyRecordsSection } from './MyRecords'
 
 type Snap = 'peek' | 'full'
 
@@ -23,9 +26,14 @@ type Props = {
   /** 要点に表示する日（地図で選んでいる日） */
   targetDate: string
   onClose: () => void
+  /** 「記録する」を押したとき */
+  onRecord: (mountain: Mountain) => void
+  /** 自分の記録を押したとき */
+  onEditRecord: (record: ClimbRecord) => void
 }
 
-export function MountainSheet({ mountain, targetDate, onClose }: Props) {
+export function MountainSheet({ mountain, targetDate, onClose, onRecord, onEditRecord }: Props) {
+  const records = useMountainRecords(mountain.id)
   const sheetRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
   const [snap, setSnap] = useState<Snap>('peek')
@@ -155,15 +163,19 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
             <div className="sheet-title">
               {mountain.name}
               <MountainBadge mountain={mountain} />
+              {records.length > 0 && <span className="badge badge-climbed">登頂済み</span>}
             </div>
             <div className="sub">
               {mountain.yomi && `${mountain.yomi}・`}
               {mountain.pref}・{formatEle(mountain.ele)}
             </div>
           </div>
-          <button type="button" className="icon-button" aria-label="閉じる" onClick={onClose}>
-            ×
-          </button>
+          <div className="sheet-title-actions">
+            <FavoriteButton mountain={mountain} />
+            <button type="button" className="icon-button" aria-label="閉じる" onClick={onClose}>
+              ×
+            </button>
+          </div>
         </div>
 
         <div className="sheet-summary">
@@ -255,6 +267,13 @@ export function MountainSheet({ mountain, targetDate, onClose }: Props) {
             <p className="sub">{error ?? '読み込み中…'}</p>
           )}
         </section>
+
+        <MyRecordsSection
+          mountain={mountain}
+          records={records}
+          onRecord={() => onRecord(mountain)}
+          onEditRecord={onEditRecord}
+        />
 
         <LatestInfoSection mountain={mountain} targetDate={targetDate} />
 

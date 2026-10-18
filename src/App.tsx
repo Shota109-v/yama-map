@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TabBar, type TabId } from './components/TabBar'
+import { requestPersistentStorage, toMountainRef } from './data/db'
 import type { Mountain } from './data/mountains'
 import { loadRecommendations, type SightFilter } from './data/recommendations'
 import { loadJson, saveJson } from './lib/storage'
@@ -7,8 +8,9 @@ import { nextSaturday } from './logic/date'
 import type { RecommendationsFile } from './logic/recommendationsFile'
 import type { BaseMapType } from './map/baseMap'
 import { MapView, type MapFocusRequest } from './map/MapView'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RecommendPage } from './pages/RecommendPage'
+import { RecordEditor, type EditorRequest } from './pages/RecordEditor'
+import { RecordsPage } from './pages/RecordsPage'
 import { SettingsPage } from './pages/SettingsPage'
 
 type Settings = { baseMapType: BaseMapType }
@@ -24,9 +26,12 @@ function App() {
   const [sight, setSight] = useState<SightFilter>('all')
   const [recommendations, setRecommendations] = useState<RecommendationsFile | null>(null)
   const [focus, setFocus] = useState<MapFocusRequest | null>(null)
+  const [editor, setEditor] = useState<EditorRequest | null>(null)
 
   useEffect(() => {
     loadRecommendations().then(setRecommendations)
+    // 記録が自動で消されにくくなるよう、ブラウザに保存の継続を頼んでおく
+    requestPersistentStorage()
   }, [])
 
   const updateSettings = (patch: Partial<Settings>) => {
@@ -54,6 +59,8 @@ function App() {
             onSightChange={setSight}
             recommendations={recommendations}
             focus={focus}
+            onRecord={(m) => setEditor({ mountain: toMountainRef(m) })}
+            onEditRecord={(record) => setEditor({ record })}
           />
         </div>
         {tab === 'recommend' && (
@@ -67,7 +74,12 @@ function App() {
           />
         )}
         {tab === 'records' && (
-          <PlaceholderPage title="記録" note="ステップ5で、登山記録を見たり書いたりできるようにします。" />
+          <RecordsPage
+            onNewRecord={() => setEditor({})}
+            onEditRecord={(record) => setEditor({ record })}
+            onShowOnMap={showOnMap}
+            onOpenSettings={() => setTab('settings')}
+          />
         )}
         {tab === 'settings' && (
           <SettingsPage
@@ -77,6 +89,7 @@ function App() {
         )}
       </main>
       <TabBar current={tab} onChange={setTab} />
+      {editor && <RecordEditor {...editor} onClose={() => setEditor(null)} />}
     </div>
   )
 }

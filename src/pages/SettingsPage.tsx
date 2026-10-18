@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { loadApiKey, saveApiKey } from '../data/apiKey'
 import { BASE_MAP_LABELS, type BaseMapType } from '../map/baseMap'
+import { BackupSetting } from './BackupSetting'
 
 type Props = {
   baseMapType: BaseMapType
@@ -26,6 +27,9 @@ export function SettingsPage({ baseMapType, onBaseMapTypeChange }: Props) {
           </label>
         ))}
       </div>
+
+      <h2>バックアップ（登山記録・お気に入り）</h2>
+      <BackupSetting />
 
       <h2>「最新情報を調べる」（Claude API）</h2>
       <ApiKeySetting />

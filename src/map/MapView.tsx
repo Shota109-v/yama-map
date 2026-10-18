@@ -10,6 +10,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
 import { DateSelect } from '../components/DateSelect'
 import { SightChips } from '../components/SightChips'
+import type { ClimbRecord } from '../data/db'
 import { toMountain, type Mountain, type MountainProps } from '../data/mountains'
 import { displayStates, type SightFilter } from '../data/recommendations'
 import { loadJson, saveJson } from '../lib/storage'
@@ -51,6 +52,8 @@ type Props = {
   onSightChange: (sight: SightFilter) => void
   recommendations: RecommendationsFile | null
   focus: MapFocusRequest | null
+  onRecord: (mountain: Mountain) => void
+  onEditRecord: (record: ClimbRecord) => void
 }
 
 export function MapView({
@@ -62,6 +65,8 @@ export function MapView({
   onSightChange,
   recommendations,
   focus,
+  onRecord,
+  onEditRecord,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -246,6 +251,8 @@ export function MapView({
           mountain={selected}
           targetDate={targetDate}
           onClose={() => setSelected(null)}
+          onRecord={onRecord}
+          onEditRecord={onEditRecord}
         />
       )}
 
