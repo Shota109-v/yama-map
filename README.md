@@ -34,9 +34,10 @@ npm run dev
 | ファイル | 作り方 | 更新 |
 |---|---|---|
 | `public/data/mountains-*.geojson` | `python scripts/build_mountains.py`（国土地理院・OpenStreetMap・Wikidata から作る） | 山のデータを直したいときに手元で実行してコミット |
-| `public/data/recommendations.json` | `npx tsx scripts/build-recommendations.ts`（主要な約1,000山の7日分のおすすめ度。約15分） | GitHub Actions が毎朝4時に作る（コミットしない） |
+| `public/data/recommendations.json` | `npx tsx scripts/build-recommendations.ts`（主要な約1,000山の7日分のおすすめ度。約10〜15分） | GitHub Actions が毎朝作る（コミットしない） |
+| `public/data/temps-history.json` | 上と同時にできる（見どころの推定に使う過去の日別気温。毎朝、前回以降の分だけ取り足す） | 同上 |
 
-`build-recommendations.ts` は Open-Meteo の1日の無料枠の半分ほどを使うので、何度も実行しないこと。
+`build-recommendations.ts` は Open-Meteo の1日の無料枠を、過去の気温を使い回せれば4分の1ほど、使い回せないとき（初回など）は9割ほど使うので、何度も実行しないこと。手元で試すときは `RECOMMENDATIONS_LIMIT=100` のように山の数を絞る。
 
 ## 公開
 

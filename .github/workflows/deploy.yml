@@ -48,7 +48,16 @@ jobs:
             rm -f public/data/recommendations.json
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
-      # 主要な山のおすすめ度を計算する（15〜40分、Open-Meteo の1日の無料枠の半分ほどを使う）。
+      # 見どころ用の過去の気温は一度取れば変わらないので、公開中のものを使い回して前回以降の分だけ取り足す。
+      # push のときも、次の朝に使えるよう公開し直す
+      - name: Reuse published temperature history
+        run: |
+          if ! curl -fsSL -o public/data/temps-history.json "https://shota109-v.github.io/yama-map/data/temps-history.json"; then
+            echo "公開中の過去の気温がないので、すべて取り直す"
+            rm -f public/data/temps-history.json
+          fi
+      # 主要な山のおすすめ度を計算する（過去の気温を使い回せれば10〜15分、Open-Meteo の1日の無料枠の4分の1ほど。
+      # 使い回せないとき（初回など）は30〜40分、無料枠の9割ほど）。
       # 毎朝の定期実行・手動実行と、公開中のデータがない push のときに計算する。
       # 時間切れや混雑で途中までになっても、計算できた山の分は公開する
       - name: Build recommendations
@@ -61,8 +70,9 @@ jobs:
       # 失敗したときに壊れたファイルを公開しないようにする
       - name: Drop empty recommendations
         run: |
-          rm -f public/data/recommendations.json.tmp
+          rm -f public/data/recommendations.json.tmp public/data/temps-history.json.tmp
           [ -s public/data/recommendations.json ] || rm -f public/data/recommendations.json
+          [ -s public/data/temps-history.json ] || rm -f public/data/temps-history.json
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'

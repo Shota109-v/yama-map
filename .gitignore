@@ -29,3 +29,5 @@ scripts/.cache/
 # 毎朝 GitHub Actions で作る（手元では npx tsx scripts/build-recommendations.ts）
 public/data/recommendations.json
 public/data/recommendations.json.tmp
+public/data/temps-history.json
+public/data/temps-history.json.tmp

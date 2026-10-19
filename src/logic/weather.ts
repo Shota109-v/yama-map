@@ -51,6 +51,10 @@ const HOURLY_VARS = [
   'cloud_cover_high',
   'snow_depth',
 ]
+const DAILY_VARS = ['temperature_2m_max', 'temperature_2m_min']
+
+/** 予報の問い合わせで取る変数の数（Open-Meteo は変数が10個を超えると問い合わせ回数を多く数える） */
+export const FORECAST_VARIABLE_COUNT = HOURLY_VARS.length + DAILY_VARS.length
 
 export type ForecastPoint = { lat: number; lon: number; elevation?: number }
 
@@ -108,7 +112,7 @@ async function requestOpenMeteo<T>(points: ForecastPoint[], params: Record<strin
 export function fetchForecasts(points: ForecastPoint[]): Promise<Forecast[]> {
   return requestOpenMeteo<Forecast>(points, {
     hourly: HOURLY_VARS.join(','),
-    daily: 'temperature_2m_max,temperature_2m_min',
+    daily: DAILY_VARS.join(','),
     forecast_days: String(FORECAST_DAYS),
     wind_speed_unit: 'ms',
   })
