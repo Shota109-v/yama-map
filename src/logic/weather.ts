@@ -54,6 +54,26 @@ const HOURLY_VARS = [
 
 export type ForecastPoint = { lat: number; lon: number; elevation?: number }
 
+/** Open-Meteo がエラーを返したとき。混雑（429）の再試行の判断に使う */
+export class OpenMeteoError extends Error {
+  readonly status: number
+  readonly reason: string
+  /** 何秒待ってから再試行すればよいか（サーバーが指定したとき） */
+  readonly retryAfterSec: number | null
+
+  constructor(status: number, reason: string, retryAfterSec: number | null) {
+    super(`天気の取得に失敗しました（${status}${reason ? `：${reason}` : ''}）`)
+    this.status = status
+    this.reason = reason
+    this.retryAfterSec = retryAfterSec
+  }
+
+  /** 1日の上限に達した（その日はもう待っても取れない） */
+  get isDailyLimit(): boolean {
+    return this.status === 429 && /daily/i.test(this.reason)
+  }
+}
+
 /** 日ごとの気温（見どころの推定に使う） */
 export type DailyTemp = { date: string; tmin: number; tmean: number }
 
@@ -72,7 +92,14 @@ async function requestOpenMeteo<T>(points: ForecastPoint[], params: Record<strin
     search.set('elevation', points.map((p) => (p.elevation === undefined ? 'nan' : String(p.elevation))).join(','))
   }
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${search}`)
-  if (!res.ok) throw new Error(`天気の取得に失敗しました（${res.status}）`)
+  if (!res.ok) {
+    const reason = await res
+      .json()
+      .then((b: { reason?: string }) => b.reason ?? '')
+      .catch(() => '')
+    const retryAfter = Number(res.headers.get('retry-after'))
+    throw new OpenMeteoError(res.status, reason, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null)
+  }
   const json = await res.json()
   return points.length === 1 && !Array.isArray(json) ? [json] : json
 }

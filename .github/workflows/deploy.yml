@@ -5,8 +5,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # 毎日 4:00（日本時間）。UTC で指定する
-    - cron: '0 19 * * *'
+    # 毎日 2:00（日本時間）。UTC で指定する。
+    # GitHub の定期実行は混雑すると1〜2時間遅れることがあるので、朝までに終わるよう早めにしている
+    - cron: '0 17 * * *'
   workflow_dispatch:
 
 # 既定では何も許可せず、ジョブごとに必要な権限だけを与える
@@ -14,7 +15,8 @@ permissions: {}
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # 長い計算の途中で次の実行に打ち切られないよう、前の実行が終わるのを待つ
+  cancel-in-progress: false
 
 # 外部のアクションは、タグの付け替えで中身が変わらないようコミットで固定する（右のコメントが元のタグ）
 jobs:
@@ -22,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 45
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -34,19 +36,33 @@ jobs:
           cache: npm
       # package-lock.json どおりに入れる。インストール時のスクリプトは実行しない
       - run: npm ci --ignore-scripts
-      # 主要な山のおすすめ度を計算する（約15分、Open-Meteo の1日の無料枠の半分ほどを使う）。
-      # 毎朝の定期実行と手動実行のときだけ計算し、push のときは公開中のものを使い回す
+      # push のときは、公開中のおすすめデータを使い回す（Open-Meteo の無料枠を節約するため）
+      - name: Reuse published recommendations
+        id: reuse
+        if: github.event_name == 'push'
+        run: |
+          if curl -fsSL -o public/data/recommendations.json "https://shota109-v.github.io/yama-map/data/recommendations.json"; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "公開中のおすすめデータがないので、計算する"
+            rm -f public/data/recommendations.json
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      # 主要な山のおすすめ度を計算する（15〜40分、Open-Meteo の1日の無料枠の半分ほどを使う）。
+      # 毎朝の定期実行・手動実行と、公開中のデータがない push のときに計算する。
+      # 時間切れや混雑で途中までになっても、計算できた山の分は公開する
       - name: Build recommendations
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || steps.reuse.outputs.found != 'true'
         run: npx tsx scripts/build-recommendations.ts
         continue-on-error: true
-        timeout-minutes: 30
-      - name: Reuse published recommendations
-        if: github.event_name == 'push'
-        run: curl -fsSL -o public/data/recommendations.json "https://shota109-v.github.io/yama-map/data/recommendations.json" || echo "公開中のおすすめデータがありません"
+        timeout-minutes: 85
+        env:
+          RECOMMENDATIONS_BUDGET_MIN: '75'
       # 失敗したときに壊れたファイルを公開しないようにする
       - name: Drop empty recommendations
-        run: '[ -s public/data/recommendations.json ] || rm -f public/data/recommendations.json'
+        run: |
+          rm -f public/data/recommendations.json.tmp
+          [ -s public/data/recommendations.json ] || rm -f public/data/recommendations.json
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
