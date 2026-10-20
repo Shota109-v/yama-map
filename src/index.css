@@ -1027,6 +1027,40 @@ body,
   padding-top: calc(40px + env(safe-area-inset-top));
 }
 
+/* アクセス（登山口・駅・駐車場） */
+.access-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.access-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.access-list a {
+  color: var(--accent);
+}
+
+.access-sub {
+  margin-top: 4px;
+  padding-left: 1.4em;
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.access-sub a {
+  margin-left: 8px;
+}
+
+.access-heading {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
 /* 最新情報を調べる（AI） */
 .research {
   margin-bottom: 8px;

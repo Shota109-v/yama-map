@@ -10,6 +10,7 @@ import type { DayOutlook } from '../logic/outlook'
 import { WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { CLIMB_HOURS, describeWeather, type DaySummary } from '../logic/weather'
 import type { ClimbRecord } from '../data/db'
+import { AccessSection } from './AccessSection'
 import { LatestInfoSection } from './LatestInfo'
 import { useMountainRecords } from '../data/useRecords'
 import { FavoriteButton, MyRecordsSection } from './MyRecords'
@@ -299,6 +300,8 @@ export function MountainSheet({ mountain, targetDate, onClose, onRecord, onEditR
           onRecord={() => onRecord(mountain)}
           onEditRecord={onEditRecord}
         />
+
+        <AccessSection mountain={mountain} />
 
         <LatestInfoSection mountain={mountain} targetDate={targetDate} />
 
