@@ -7,6 +7,7 @@ import { formatEle, loadMajorMountains, toMountain, type Mountain } from '../dat
 import { inPrefecture, PREFECTURES } from '../data/prefectures'
 import type { SightFilter } from '../data/recommendations'
 import { useClimbedIds } from '../data/useRecords'
+import { distanceKm, formatKm, getCurrentPosition, type LatLon } from '../lib/geo'
 import { formatDateShort } from '../logic/date'
 import { bestLevel, recommendScore, WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { isNotable, sightScore, type SightId, type SightLevel } from '../logic/sights'
@@ -36,7 +37,19 @@ type Props = {
   onSelect: (mountain: Mountain) => void
 }
 
-type Row = { mountain: Mountain; day: DayRecommendation; score: number }
+type Row = { mountain: Mountain; day: DayRecommendation; score: number; distance: number | null }
+
+type SortOrder = 'score' | 'near' | 'kana'
+
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: 'score', label: '並び：おすすめ順' },
+  { value: 'near', label: '並び：近い順' },
+  { value: 'kana', label: '並び：あいうえお順' },
+]
+
+const kanaCollator = new Intl.Collator('ja')
+/** あいうえお順の並び替えに使う読み（よみがながなければ山名） */
+const sortKey = (m: Mountain) => m.yomi || m.name
 
 /** 一覧に出す見どころ（絞り込み中はその見どころ、そうでなければ期待できるものを点数順に2つまで） */
 function rowSights(day: DayRecommendation, sight: SightFilter): [SightId, SightLevel][] {
@@ -61,7 +74,26 @@ export function RecommendPage({
   const [group, setGroup] = useState<Group>('all')
   const [showBad, setShowBad] = useState(false)
   const [unclimbedOnly, setUnclimbedOnly] = useState(false)
+  const [order, setOrder] = useState<SortOrder>('score')
+  const [position, setPosition] = useState<LatLon | null>(null)
+  const [positionStatus, setPositionStatus] = useState<string | null>(null)
   const climbedIds = useClimbedIds()
+
+  const changeOrder = (next: SortOrder) => {
+    setOrder(next)
+    if (next !== 'near' || position) return
+    setPositionStatus('現在地を取得中…')
+    getCurrentPosition().then(
+      (p) => {
+        setPosition(p)
+        setPositionStatus(null)
+      },
+      (e: Error) => {
+        setPositionStatus(e.message)
+        setOrder('score')
+      },
+    )
+  }
 
   useEffect(() => {
     loadMajorMountains().then((c) =>
@@ -87,17 +119,27 @@ export function RecommendPage({
         bad++
         if (!showBad) continue
       }
-      result.push({ mountain: m, day, score: recommendScore(day.weather, level) })
+      result.push({
+        mountain: m,
+        day,
+        score: recommendScore(day.weather, level),
+        distance: position ? distanceKm(position, m) : null,
+      })
     }
     // おすすめ度 → 名山 → 標高の順
-    result.sort(
-      (a, b) =>
-        b.score - a.score ||
-        (a.mountain.rank ?? 3) - (b.mountain.rank ?? 3) ||
-        (b.mountain.ele ?? 0) - (a.mountain.ele ?? 0),
-    )
+    const byScore = (a: Row, b: Row) =>
+      b.score - a.score ||
+      (a.mountain.rank ?? 3) - (b.mountain.rank ?? 3) ||
+      (b.mountain.ele ?? 0) - (a.mountain.ele ?? 0)
+    if (order === 'near' && position) {
+      result.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0) || byScore(a, b))
+    } else if (order === 'kana') {
+      result.sort((a, b) => kanaCollator.compare(sortKey(a.mountain), sortKey(b.mountain)))
+    } else {
+      result.sort(byScore)
+    }
     return { rows: result, badCount: bad }
-  }, [mountains, recommendations, targetDate, pref, group, sight, showBad, unclimbedOnly, climbedIds])
+  }, [mountains, recommendations, targetDate, pref, group, sight, showBad, unclimbedOnly, climbedIds, order, position])
 
   return (
     <section className="page recommend-page">
@@ -119,12 +161,20 @@ export function RecommendPage({
               </option>
             ))}
           </select>
+          <select value={order} onChange={(e) => changeOrder(e.target.value as SortOrder)} aria-label="並び順">
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
+        {positionStatus && <p className="sub">{positionStatus}</p>}
       </div>
 
       {!recommendations && (
         <p className="sub">
-          おすすめのデータがまだありません。毎朝4時ごろに主要な山の分を計算します。
+          おすすめのデータがまだありません。毎朝（2時から）主要な山の分を計算します。
         </p>
       )}
       {recommendations && !recommendations.dates.includes(targetDate) && (
@@ -151,7 +201,7 @@ export function RecommendPage({
             )}
           </div>
           <ul className="recommend-list">
-            {rows.slice(0, MAX_ROWS).map(({ mountain: m, day }) => {
+            {rows.slice(0, MAX_ROWS).map(({ mountain: m, day, distance }) => {
               const w = day.weatherCode === null ? null : describeWeather(day.weatherCode)
               return (
                 <li key={m.id}>
@@ -168,6 +218,7 @@ export function RecommendPage({
                       </span>
                       <span className="result-meta">
                         {m.pref}・{formatEle(m.ele)}
+                        {distance !== null && `・現在地から約${formatKm(distance)}`}
                       </span>
                     </span>
                     <span className="recommend-side">

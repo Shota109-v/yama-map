@@ -70,10 +70,16 @@ export default defineConfig({
             },
           },
           {
-            // 山のデータ。手元の版をすぐ使い、裏で新しい版を取り直す
-            urlPattern: /\/data\/.*\.geojson$/,
+            // 山のデータ・アクセス情報。手元の版をすぐ使い、裏で新しい版を取り直す
+            urlPattern: /\/data\/(.*\.geojson|access\.json)$/,
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'app-data' },
+          },
+          {
+            // 毎朝のおすすめデータ。新しいものを優先し、電波がなければ前回の分を使う
+            urlPattern: /\/data\/recommendations\.json$/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'recommendations', networkTimeoutSeconds: 8 },
           },
           {
             urlPattern: /^https:\/\/cyberjapandata\.gsi\.go\.jp\/xyz\//,

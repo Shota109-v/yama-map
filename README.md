@@ -44,7 +44,7 @@ npm run dev
 `main` ブランチに push すると、GitHub Actions が GitHub Pages に公開する（`.github/workflows/deploy.yml`）。
 
 - push のとき：おすすめデータは計算せず、公開中のものを使い回す
-- 毎朝4時（日本時間）：おすすめデータを計算して公開し直す
+- 毎朝2時（日本時間）：おすすめデータを計算して公開し直す（GitHub の混雑で1〜2時間遅れることがある）
 - すぐ計算したいとき：GitHub の Actions →「Deploy to GitHub Pages」→「Run workflow」
 
 ## セキュリティ

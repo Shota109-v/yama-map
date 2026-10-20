@@ -57,7 +57,7 @@ export function SettingsPage({ baseMapType, onBaseMapTypeChange, recommendations
         <li>アプリの版：{formatDateTime(__BUILD_TIME__)} 版</li>
         <li>
           おすすめデータ：
-          {recommendations ? `${formatDateTime(recommendations.generatedAt)} に計算（毎朝4時ごろ更新）` : 'まだありません'}
+          {recommendations ? `${formatDateTime(recommendations.generatedAt)} に計算（毎朝2時から計算し、早朝に更新）` : 'まだありません'}
         </li>
         <li>表示している情報は目安です。出発前に公式の気象情報と現地の最新情報を確認してください。</li>
       </ul>

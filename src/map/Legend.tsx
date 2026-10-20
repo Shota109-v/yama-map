@@ -64,7 +64,7 @@ export function Legend({ date, sight, generatedAt, onClose }: Props) {
         {!generatedAt && (
           <>
             <br />
-            おすすめのデータがまだありません（毎朝4時ごろに更新されます）。
+            おすすめのデータがまだありません（毎朝2時から計算し、早朝に更新されます）。
           </>
         )}
       </p>

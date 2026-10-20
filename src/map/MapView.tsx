@@ -252,7 +252,7 @@ export function MapView({
         <SightChips date={targetDate} value={sight} onChange={onSightChange} />
         {sight !== 'all' && !recommendations?.dates.includes(targetDate) && (
           <p className="map-notice">
-            おすすめデータがまだないため、地図には反映されません（毎朝4時ごろに計算されます）。山をタップすると詳細では確認できます。
+            おすすめデータがまだないため、地図には反映されません（毎朝2時から計算し、早朝に更新されます）。山をタップすると詳細では確認できます。
           </p>
         )}
         {legendOpen && (
