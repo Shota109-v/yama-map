@@ -1,6 +1,6 @@
 import type { SightFilter } from '../data/recommendations'
 import { formatDateShort } from '../logic/date'
-import { SIGHTS } from '../logic/sights'
+import { filterInfo } from '../logic/recommend'
 import { CLIMBED_COLOR } from './mountainLayers'
 
 type Props = { date: string; sight: SightFilter; generatedAt: string | null; onClose: () => void }
@@ -33,19 +33,22 @@ export function Legend({ date, sight, generatedAt, onClose }: Props) {
             <span className="legend-ring" style={{ borderColor: '#9ca3af' }}>
               <Dot color="#d64545" size={10} />
             </span>
-            上の見どころ（紅葉など）を選ぶと、天気が悪くなく見頃の山に色の輪が付きます
+            上の「晴れ」や見どころ（紅葉など）を選ぶと、当てはまる山に色の輪が付き、ほかの山は薄くなります
           </li>
         ) : (
-          <li>
-            <span className="legend-ring" style={{ borderColor: SIGHTS[sight].color }}>
-              <Dot color="#d64545" size={10} />
-            </span>
-            {SIGHTS[sight].name}が見頃（天気が悪くない山）
-          </li>
+          <>
+            <li>
+              <span className="legend-ring" style={{ borderColor: filterInfo(sight).color }}>
+                <Dot color="#d64545" size={10} />
+              </span>
+              {sight === 'sunny' ? '天気が良い' : `${filterInfo(sight).name}が見頃`}
+            </li>
+            <li>
+              <Dot color="#d64545" size={12} faded />
+              {sight === 'sunny' ? '天気が良くない' : `${filterInfo(sight).name}は期待できない`}
+            </li>
+          </>
         )}
-        <li>
-          <Dot color="#d64545" size={12} faded /> 天気が悪い（見どころで絞り込んだときは、期待できない山も薄く）
-        </li>
       </ul>
       <p className="note">
         {formatDateShort(date)}の予報で判定しています。拡大するほど表示する山が増えます。

@@ -18,6 +18,7 @@ import type { MountainCollection } from '../src/data/mountains'
 import { addDays, toDateKey } from '../src/logic/date'
 import { buildOutlook } from '../src/logic/outlook'
 import {
+  encodeCloud,
   encodeLevel,
   encodeWeather,
   type RecommendationsFile,
@@ -245,6 +246,8 @@ async function main() {
         file.items[t.id] = {
           w: outlook.map((d) => encodeWeather(d.judgement.cls)).join(''),
           c: outlook.map((d) => d.weather.weatherCode),
+          // 景色の良さ（雲の少なさ）を「すべて」の並び順に使う
+          v: outlook.map((d) => encodeCloud(d.weather.cloudCoverAvg)).join(''),
           g,
         }
       })

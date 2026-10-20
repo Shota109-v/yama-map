@@ -9,7 +9,7 @@ import type { SightFilter } from '../data/recommendations'
 import { useClimbedIds } from '../data/useRecords'
 import { distanceKm, formatKm, getCurrentPosition, type LatLon } from '../lib/geo'
 import { formatDateShort } from '../logic/date'
-import { bestLevel, recommendScore, WEATHER_CLASS_LABELS } from '../logic/recommend'
+import { bestLevel, overallScore, recommendScore, WEATHER_CLASS_LABELS } from '../logic/recommend'
 import { isNotable, sightScore, type SightId, type SightLevel } from '../logic/sights'
 import {
   decodeDay,
@@ -54,7 +54,7 @@ const sortKey = (m: Mountain) => m.yomi || m.name
 /** 一覧に出す見どころ（絞り込み中はその見どころ、そうでなければ期待できるものを点数順に2つまで） */
 function rowSights(day: DayRecommendation, sight: SightFilter): [SightId, SightLevel][] {
   const entries = Object.entries(day.sights) as [SightId, SightLevel][]
-  if (sight !== 'all') return entries.filter(([id]) => id === sight)
+  if (sight !== 'all' && sight !== 'sunny') return entries.filter(([id]) => id === sight)
   return entries
     .filter(([, level]) => isNotable(level) || level === 'past')
     .sort((a, b) => sightScore(b[1]) - sightScore(a[1]))
@@ -112,9 +112,11 @@ export function RecommendPage({
       if (group === 'famous' && m.rank === undefined) continue
       if (group === 'rank1' && m.rank !== 1) continue
       if (unclimbedOnly && climbedIds.has(m.id)) continue
+      const isSight = sight !== 'all' && sight !== 'sunny'
       const level = bestLevel(day.sights, sight)
-      // 見どころで絞り込んだときは、その見どころが期待できる山だけにする
-      if (sight !== 'all' && !isNotable(level)) continue
+      // 見どころで絞り込んだときは、その見どころが期待できる山だけにする。「晴れ」は天気が良い山だけ
+      if (isSight && !isNotable(level)) continue
+      if (sight === 'sunny' && day.weather !== 'good') continue
       if (day.weather === 'bad') {
         bad++
         if (!showBad) continue
@@ -122,7 +124,10 @@ export function RecommendPage({
       result.push({
         mountain: m,
         day,
-        score: recommendScore(day.weather, level),
+        // 見どころを選んだときは天気 → その見どころ、それ以外は天気 → 景色 → 見どころ少し
+        score: isSight
+          ? recommendScore(day.weather, level)
+          : overallScore(day.weather, day.cloudCover, day.sights),
         distance: position ? distanceKm(position, m) : null,
       })
     }

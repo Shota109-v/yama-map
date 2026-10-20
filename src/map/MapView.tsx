@@ -14,7 +14,7 @@ import type { ClimbRecord } from '../data/db'
 import { toMountain, type Mountain, type MountainProps } from '../data/mountains'
 import { displayStates, type SightFilter } from '../data/recommendations'
 import { useClimbedIds } from '../data/useRecords'
-import { SIGHTS } from '../logic/sights'
+import { filterInfo } from '../logic/recommend'
 import { loadJson, saveJson } from '../lib/storage'
 import type { RecommendationsFile } from '../logic/recommendationsFile'
 import { baseMapStyle, HILLSHADE_LAYER_ID, type BaseMapType } from './baseMap'
@@ -193,7 +193,7 @@ export function MapView({
     const map = mapRef.current
     if (!map || !layersReady) return
     applyMountainStates(map, recommendations ? displayStates(recommendations, targetDate, sight) : new Map())
-    if (sight !== 'all') setHighlightColor(map, SIGHTS[sight].color)
+    if (sight !== 'all') setHighlightColor(map, filterInfo(sight).color)
   }, [layersReady, recommendations, targetDate, sight])
 
   // 記録した山を青くする（記録が増減するとすぐ反映される）

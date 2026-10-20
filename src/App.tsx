@@ -29,7 +29,9 @@ function App() {
   const [sightChoice, setSight] = useState<SightFilter>('all')
   // 日付を変えて、選んでいた見どころが時期外になったら「すべて」に戻す
   const sight: SightFilter =
-    sightChoice !== 'all' && !sightsInSeason(targetDate).includes(sightChoice) ? 'all' : sightChoice
+    sightChoice !== 'all' && sightChoice !== 'sunny' && !sightsInSeason(targetDate).includes(sightChoice)
+      ? 'all'
+      : sightChoice
   const [recommendations, setRecommendations] = useState<RecommendationsFile | null>(null)
   const [focus, setFocus] = useState<MapFocusRequest | null>(null)
   const [editor, setEditor] = useState<EditorRequest | null>(null)

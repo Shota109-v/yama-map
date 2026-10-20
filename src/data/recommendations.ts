@@ -1,4 +1,4 @@
-import { bestLevel, isHighlighted, type SightFilter } from '../logic/recommend'
+import type { SightFilter } from '../logic/recommend'
 import { decodeDay, type RecommendationsFile } from '../logic/recommendationsFile'
 import { isNotable } from '../logic/sights'
 
@@ -8,23 +8,27 @@ export type MountainDisplayState = { dim: boolean; hl: boolean }
 
 /**
  * 地図の点の見せ方を山ごとに決める。
- * 天気が悪い山・絞り込んだ見どころが期待できない山は薄くする。
- * 輪は見どころを選んだときだけ、その見どころが見頃の山に付ける（「すべて」では付けない）
+ * - すべて：何もしない（全部ふつうに表示、輪なし）
+ * - 晴れ：天気が良い山以外を薄く、天気が良い山に輪
+ * - 見どころ：その見どころが期待できない山を薄く、見頃の山に輪
  */
 export function displayStates(
   file: RecommendationsFile,
   date: string,
-  sight: SightFilter,
+  filter: SightFilter,
 ): Map<string, MountainDisplayState> {
   const states = new Map<string, MountainDisplayState>()
+  if (filter === 'all') return states
   for (const id of Object.keys(file.items)) {
     const day = decodeDay(file, id, date)
     if (!day) continue
-    const level = bestLevel(day.sights, sight)
-    states.set(id, {
-      dim: day.weather === 'bad' || (sight !== 'all' && !isNotable(level)),
-      hl: sight !== 'all' && isHighlighted(day.weather, level),
-    })
+    if (filter === 'sunny') {
+      const good = day.weather === 'good'
+      states.set(id, { dim: !good, hl: good })
+    } else {
+      const level = day.sights[filter] ?? 'none'
+      states.set(id, { dim: !isNotable(level), hl: level === 'peak' })
+    }
   }
   return states
 }
