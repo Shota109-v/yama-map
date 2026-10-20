@@ -28,24 +28,29 @@ export function Legend({ date, sight, generatedAt, onClose }: Props) {
         <li>
           <Dot color={CLIMBED_COLOR} size={12} /> 登頂済み（記録した山。大きさは上のグループのまま）
         </li>
-        {sight === 'all' ? (
+        {sight === 'all' && (
           <li>
             <span className="legend-ring" style={{ borderColor: '#9ca3af' }}>
               <Dot color="#d64545" size={10} />
             </span>
-            上の「晴れ」や見どころ（紅葉など）を選ぶと、当てはまる山に色の輪が付き、ほかの山は薄くなります
+            「すべて」では全部の山をそのまま表示します。見どころ（紅葉など）を選ぶと、見頃の山に色の輪が付きます
           </li>
-        ) : (
+        )}
+        {sight === 'sunny' && (
+          <li>
+            <Dot color="#d64545" size={12} faded /> 天気が良くない山（天気が良い山はそのまま表示）
+          </li>
+        )}
+        {sight !== 'all' && sight !== 'sunny' && (
           <>
             <li>
               <span className="legend-ring" style={{ borderColor: filterInfo(sight).color }}>
                 <Dot color="#d64545" size={10} />
               </span>
-              {sight === 'sunny' ? '天気が良い' : `${filterInfo(sight).name}が見頃`}
+              {filterInfo(sight).name}が見頃
             </li>
             <li>
-              <Dot color="#d64545" size={12} faded />
-              {sight === 'sunny' ? '天気が良くない' : `${filterInfo(sight).name}は期待できない`}
+              <Dot color="#d64545" size={12} faded /> {filterInfo(sight).name}は期待できない
             </li>
           </>
         )}

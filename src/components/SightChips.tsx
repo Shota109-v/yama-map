@@ -4,12 +4,12 @@ import { sightsInSeason, sightTitle } from '../logic/sights'
 
 type Props = { date: string; value: SightFilter; onChange: (v: SightFilter) => void }
 
-/** 絞り込み。すべて・晴れと、選んだ日の時期に当てはまる見どころだけを出す */
+/** 絞り込み。晴れ（最初に選ばれている）、選んだ日の時期に当てはまる見どころ、すべて（いちばん右）の順に出す */
 export function SightChips({ date, value, onChange }: Props) {
   const options: { value: SightFilter; label: string }[] = [
-    { value: 'all', label: 'すべて' },
     { value: 'sunny', label: `${SUNNY.icon} ${SUNNY.name}` },
     ...sightsInSeason(date).map((id) => ({ value: id, label: sightTitle(id) })),
+    { value: 'all', label: 'すべて' },
   ]
 
   return (

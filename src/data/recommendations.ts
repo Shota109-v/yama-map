@@ -9,7 +9,7 @@ export type MountainDisplayState = { dim: boolean; hl: boolean }
 /**
  * 地図の点の見せ方を山ごとに決める。
  * - すべて：何もしない（全部ふつうに表示、輪なし）
- * - 晴れ：天気が良い山以外を薄く、天気が良い山に輪
+ * - 晴れ（最初に選ばれている）：天気が良い山以外を薄く。輪は付けない
  * - 見どころ：その見どころが期待できない山を薄く、見頃の山に輪
  */
 export function displayStates(
@@ -23,8 +23,7 @@ export function displayStates(
     const day = decodeDay(file, id, date)
     if (!day) continue
     if (filter === 'sunny') {
-      const good = day.weather === 'good'
-      states.set(id, { dim: !good, hl: good })
+      states.set(id, { dim: day.weather !== 'good', hl: false })
     } else {
       const level = day.sights[filter] ?? 'none'
       states.set(id, { dim: !isNotable(level), hl: level === 'peak' })

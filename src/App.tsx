@@ -26,7 +26,8 @@ function App() {
   const [settings, setSettings] = useState(() => loadJson(SETTINGS_KEY, DEFAULT_SETTINGS))
   // 地図とおすすめ一覧で共通の条件。最初は次の土曜日
   const [targetDate, setTargetDate] = useState(() => nextSaturday())
-  const [sightChoice, setSight] = useState<SightFilter>('all')
+  // 最初は「晴れ」（天気が良い山を目立たせる）
+  const [sightChoice, setSight] = useState<SightFilter>('sunny')
   // 日付を変えて、選んでいた見どころが時期外になったら「すべて」に戻す
   const sight: SightFilter =
     sightChoice !== 'all' && sightChoice !== 'sunny' && !sightsInSeason(targetDate).includes(sightChoice)
